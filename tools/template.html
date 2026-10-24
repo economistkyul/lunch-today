@@ -297,8 +297,29 @@ function access(p){
 }
 function hm(x){return Math.floor(x/60)+':'+String(x%60).padStart(2,'0');}
 function closedToday(p){return !!p.closed&&p.closed.indexOf(DOW[new Date().getDay()])>=0;}
-function naverUrl(p){return 'https://map.naver.com/p/search/'+encodeURIComponent(p.name+' '+(p.s==='sejong'?'세종':(p.area||'').split(' ')[0]||'서울'));}
-function kakaoUrl(p){return 'https://map.kakao.com/?q='+encodeURIComponent(p.name+' '+(p.s==='sejong'?'세종':'서울'));}
+/* 네이버·카카오 검색어: 지점명(○○점)은 빼고 상호 + 동네로 찾습니다. 지점 표기가 서로 달라 검색이 안 되는 문제를 줄여요. */
+function brandName(p){
+  var n=(p.name||'').replace(/\([^)]*\)/g,' ').replace(/\s+/g,' ').trim();
+  var parts=n.split(' ');
+  while(parts.length>1&&/(점|지점|직영점|본점|호점)$/.test(parts[parts.length-1]))parts.pop();
+  if(parts.length>1&&/^(세종|여의도|서울역|반포|서초|어진|도담|나성)$/.test(parts[parts.length-1])&&parts.slice(0,-1).join('').length>=2)parts.pop();
+  return parts.join(' ');
+}
+function placeRegion(p){
+  var a=((p.s==='sejong'&&p.dong)?p.dong:(p.area||'')).split(' ')[0];
+  if(/(동|면|읍|로)$/.test(a))return (p.s==='sejong'?'세종 ':'')+a;
+  return p.s==='sejong'?'세종':('서울 '+(SITES[p.s]?SITES[p.s].name:''));
+}
+function placeQuery(p){return brandName(p)+' '+placeRegion(p);}
+function isMobile(){return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');}
+function naverUrl(p){var q=encodeURIComponent(placeQuery(p));return isMobile()?'https://m.search.naver.com/search.naver?where=m&sm=mtp_hty&query='+q:'https://search.naver.com/search.naver?where=nexearch&query='+q;}
+function naverMapUrl(p){
+  var q=encodeURIComponent(placeQuery(p));
+  if(p.lat==null)return 'https://map.naver.com/p/search/'+q;
+  var x=p.lng*20037508.34/180,y=Math.log(Math.tan((90+p.lat)*Math.PI/360))/(Math.PI/180)*20037508.34/180;
+  return 'https://map.naver.com/p/search/'+q+'?c='+x.toFixed(2)+','+y.toFixed(2)+',17,0,0,0,dh';
+}
+function kakaoUrl(p){return 'https://map.kakao.com/?q='+encodeURIComponent(placeQuery(p));}
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){t.hidden=true;},2400);}
 function nameOf(uid){return uid===me?'나':(names[uid]||'동료');}
 function allPlaces(){return DATA.places.concat(Object.keys(extra).map(function(k){return extra[k];}));}
@@ -573,7 +594,9 @@ function renderSheet(){
     el('a',{class:'btn naver',href:naverUrl(p),target:'_blank',rel:'noopener',text:'네이버 리뷰·예약'}),
     p.tel?el('button',{class:'btn',onclick:function(){copy(p.tel);},text:'전화번호 복사'}):null,
     p.tel?el('a',{class:'btn',href:'tel:'+p.tel.replace(/-/g,''),text:'전화'}):null,
+    el('a',{class:'btn',href:naverMapUrl(p),target:'_blank',rel:'noopener',text:'네이버 지도'}),
     el('a',{class:'btn',href:kakaoUrl(p),target:'_blank',rel:'noopener',text:'카카오맵'})]));
+  sh.appendChild(el('div',{style:'margin-top:6px;font-size:.76rem;color:var(--muted)',text:'네이버 검색어: '+placeQuery(p)+' · 검색 결과의 플레이스 카드에서 리뷰·예약 버튼을 누르세요'}));
   if(dinner){
     var hs=hoesik(p),memo=[];
     if(p.room)memo.push('후기에 룸·별실 언급');if(p.grp)memo.push('단체·회식 방문 후기');if(p.rsv!=='unk')memo.push('예약 언급');
