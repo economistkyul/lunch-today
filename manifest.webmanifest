@@ -1,0 +1,15 @@
+{
+  "name": "오늘 뭐 먹지",
+  "short_name": "뭐 먹지",
+  "description": "세종·반포·여의도·서울역 근무지별 점심 메뉴와 회식 장소를 함께 고르는 앱",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f1f4f3",
+  "theme_color": "#d4451a",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,688 @@
+<title>오늘 뭐 먹지</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: site tabs → meal toggle → vote board → menu tiles → place cards; detail is a bottom sheet on phones, a sticky side panel on desktop. */
+:root{
+  --bg:#f1f4f3;
+  --card:#ffffff;
+  --ink:#1b2321;
+  --muted:#5f6c68;
+  --line:#dbe2df;
+  --chili:#d4451a;
+  --chili-soft:#fde8de;
+  --go:#1d7656;
+  --go-soft:#ddf0e7;
+  --gold:#a3670a;
+  --gold-soft:#f8ecd6;
+  --font-display:"Do Hyeon","Black Han Sans","Apple SD Gothic Neo",sans-serif;
+  --font-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --font-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121716;--card:#1a2120;--ink:#e4ece9;--muted:#9babA6;--line:#2b3533;--chili:#ff7a4d;--chili-soft:#3b2119;--go:#5ccb9d;--go-soft:#173027;--gold:#e5ad4c;--gold-soft:#33280f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121716;--card:#1a2120;--ink:#e4ece9;--muted:#9babA6;--line:#2b3533;--chili:#ff7a4d;--chili-soft:#3b2119;--go:#5ccb9d;--go-soft:#173027;--gold:#e5ad4c;--gold-soft:#33280f;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--chili);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto}
+h1,h2,h3{font-family:var(--font-display);font-weight:400;letter-spacing:0;margin:0;text-wrap:balance}
+
+.sites{display:flex;gap:4px;padding-top:14px;overflow-x:auto;scrollbar-width:none}
+.sites::-webkit-scrollbar{display:none}
+.sites button{flex:none;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 14px;display:grid;text-align:left;line-height:1.25}
+.sites button b{font-family:var(--font-display);font-weight:400;font-size:1.15rem}
+.sites button span{font-size:.72rem;color:var(--muted)}
+.sites button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--card)}
+.sites button[aria-pressed="true"] span{color:var(--card);opacity:.75}
+header.top{padding-top:14px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+header.top h1{font-size:2rem;line-height:1.1}
+header.top p{margin:4px 0 0;color:var(--muted);font-size:.86rem}
+.meal{display:inline-grid;grid-template-columns:1fr 1fr;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
+.meal button{border:0;background:transparent;border-radius:999px;padding:6px 16px;font-weight:600;color:var(--muted)}
+.meal button[aria-pressed="true"]{background:var(--chili);color:var(--card)}
+
+.board{margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.board-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.board-head h2{font-size:1.35rem}
+.board-head .who{font-size:.8rem;color:var(--muted)}
+.tally{display:grid;gap:10px;margin-top:10px}
+.trow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.trow:first-child{border-top:0;padding-top:2px}
+.trow .tn{font-weight:700;min-width:0;overflow-wrap:anywhere}
+.trow .tn small{font-weight:400;color:var(--muted);margin-left:6px}
+.trow .cnt{font-family:var(--font-num);font-size:1.3rem;color:var(--chili)}
+.trow .cnt small{font-family:var(--font-body);font-size:.75rem;color:var(--muted);margin-left:2px}
+.names{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px}
+.nm{font-size:.76rem;border-radius:999px;padding:1px 8px;background:var(--bg);border:1px solid var(--line)}
+.nm.me{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.trow .acts{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82rem}
+.bar{grid-column:1/-1;height:4px;background:var(--bg);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--chili)}
+.booked{color:var(--go);font-weight:600}
+.empty{color:var(--muted);font-size:.9rem;margin:8px 0 2px}
+.banner{margin-top:10px;font-size:.8rem;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px}
+
+.sec-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:26px 0 10px;flex-wrap:wrap}
+.sec-head h2{font-size:1.6rem}
+.sec-head .hint{font-size:.82rem;color:var(--muted)}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (min-width:640px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:980px){.tiles{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.tile{position:relative;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:12px 12px 10px;display:grid;gap:3px;min-height:104px;align-content:start}
+.tile:hover{border-color:var(--muted)}
+.tile[aria-pressed="true"]{border-color:var(--chili);background:var(--chili-soft)}
+.tile .tt{font-family:var(--font-display);font-size:1.45rem;line-height:1.15}
+.tile .td{font-size:.76rem;color:var(--muted);line-height:1.35}
+.tile .tc{font-size:.76rem;color:var(--go);font-weight:600;margin-top:auto}
+.tile .tc.none{color:var(--muted);font-weight:400}
+.tile .vb{position:absolute;right:8px;top:8px;background:var(--chili);color:var(--card);font-family:var(--font-num);font-size:.72rem;border-radius:999px;padding:1px 7px}
+.tile.any{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.tile.any .td,.tile.any .tc{color:var(--card);opacity:.8}
+
+.controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:.84rem;white-space:nowrap}
+.chip[aria-pressed="true"]{border-color:var(--go);background:var(--go-soft);color:var(--go);font-weight:600}
+.chip.area[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--card)}
+.chip.hot[aria-pressed="true"]{border-color:var(--chili);background:var(--chili-soft);color:var(--chili)}
+.sep{width:1px;height:20px;background:var(--line);margin:0 2px}
+.search{flex:1 1 180px;min-width:0;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px}
+
+.layout{display:grid;gap:16px}
+@media (min-width:960px){.layout{grid-template-columns:minmax(0,1fr) minmax(0,420px);align-items:start}
+  .side{position:sticky;top:12px}}
+.cards{display:grid;gap:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}
+.card.sel{border-color:var(--chili);box-shadow:0 0 0 1px var(--chili)}
+.card.lucky{animation:pop .5s ease}
+@keyframes pop{0%{transform:scale(.97)}60%{transform:scale(1.02)}100%{transform:none}}
+@media (prefers-reduced-motion: reduce){.card.lucky{animation:none}}
+.card .pn{font-weight:700;font-size:1.04rem;border:0;background:none;padding:0;text-align:left;min-width:0;overflow-wrap:anywhere}
+.card .pn:hover{text-decoration:underline}
+.card .walk{grid-row:1/3;grid-column:2;text-align:right}
+.walk b{font-family:var(--font-num);font-size:1.25rem;font-weight:500;color:var(--go)}
+.walk b.car{color:var(--muted)}
+.walk span{display:block;font-size:.72rem;color:var(--muted)}
+.card .ps{font-size:.84rem;color:var(--muted);min-width:0}
+.card .ps em{font-style:normal;color:var(--ink)}
+.pills{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px}
+.pill{font-size:.72rem;padding:1px 7px;border-radius:5px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.rsv{border-color:var(--go);color:var(--go)}
+.pill.pub{border-color:var(--gold);color:var(--gold)}
+.pill.hs{background:var(--gold-soft);border-color:var(--gold);color:var(--gold);font-weight:600}
+.pill.team{background:var(--chili-soft);border-color:var(--chili);color:var(--chili)}
+.pill.off{border-style:dashed}
+.card .row{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 12px;font-weight:600;font-size:.84rem;text-decoration:none;color:var(--ink);display:inline-flex;align-items:center;gap:4px}
+.btn.vote{border-color:var(--chili);color:var(--chili)}
+.btn.vote[aria-pressed="true"]{background:var(--chili);color:var(--card)}
+.btn.naver{border-color:var(--go);color:var(--go)}
+.btn.dark{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.tel{font-family:var(--font-num);font-size:.84rem;user-select:all}
+.more{text-align:center;color:var(--muted);font-size:.85rem;padding:10px}
+
+.sheet{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.sheet h3{font-size:1.7rem;line-height:1.15;margin:2px 0 6px}
+.eyebrow{font-size:.74rem;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.facts{display:grid;grid-template-columns:68px minmax(0,1fr);gap:6px 10px;font-size:.88rem;margin:12px 0}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.part{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
+.part h4{margin:0 0 8px;font-size:.8rem;color:var(--muted);letter-spacing:.04em}
+.flow{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:.86rem}
+.flow li{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px}
+.flow .t{font-family:var(--font-num);color:var(--muted);font-size:.8rem}
+.cafe{display:flex;justify-content:space-between;gap:8px;font-size:.86rem;padding:3px 0}
+.cafe span:last-child{color:var(--muted);font-size:.78rem;white-space:nowrap}
+.rv{display:grid;gap:2px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:.88rem}
+.rv:last-child{border-bottom:0}
+.rv .rh{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.rv .rs{color:var(--chili);letter-spacing:1px}
+.rv .rd{color:var(--muted);font-size:.75rem}
+.stars{display:flex;gap:2px}
+.stars button{border:0;background:transparent;font-size:1.7rem;line-height:1;padding:2px;color:var(--line)}
+.stars button.on{color:var(--chili)}
+.form{display:grid;gap:8px;margin-top:8px}
+.form textarea,.form input,.form select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px}
+.form label{font-size:.78rem;color:var(--muted);display:grid;gap:3px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.law{background:var(--bg);border-radius:10px;padding:10px 12px;font-size:.82rem;margin-top:12px;color:var(--muted)}
+.hsbox{background:var(--gold-soft);border-radius:10px;padding:10px 12px;font-size:.84rem;margin-top:4px}
+.close{display:none}
+.side-empty{color:var(--muted);font-size:.9rem}
+@media (max-width:959px){
+  .side{position:fixed;inset:0;z-index:20;background:color-mix(in srgb,var(--ink) 45%,transparent);display:flex;align-items:flex-end;padding-top:calc(env(safe-area-inset-top,0px) + 36px)}
+  .side[hidden]{display:none!important}
+  .sheet{border-radius:18px 18px 0 0;width:100%;max-height:100%;overflow-y:auto;border-bottom:0;
+    padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+  .close{display:inline-flex}
+}
+@media (min-width:960px){.side[hidden]{display:block!important}}
+details.add{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details.add summary{font-weight:600;cursor:pointer}
+footer{margin-top:30px;color:var(--muted);font-size:.78rem;line-height:1.65}
+footer a{color:var(--muted)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--card);padding:8px 16px;border-radius:999px;font-size:.85rem;z-index:40;max-width:calc(100% - 32px)}
+</style>
+
+<div class="wrap">
+  <nav class="sites" id="sites" aria-label="근무지"></nav>
+  <header class="top">
+    <div>
+      <h1>오늘 뭐 먹지?</h1>
+      <p id="dateline"></p>
+    </div>
+    <div class="meal" role="group" aria-label="식사">
+      <button id="meal-lunch" data-meal="lunch" aria-pressed="true">점심</button>
+      <button id="meal-dinner" data-meal="dinner" aria-pressed="false">저녁·회식</button>
+    </div>
+  </header>
+
+  <section class="board" id="board" aria-live="polite"></section>
+
+  <div class="sec-head">
+    <h2 id="tilesTitle">메뉴부터 골라요</h2>
+    <span class="hint" id="tileHint"></span>
+  </div>
+  <div class="tiles" id="tiles"></div>
+
+  <div class="sec-head" id="placesHead">
+    <h2 id="placesTitle">가까운 집</h2>
+    <span class="hint" id="placesCount"></span>
+  </div>
+  <div class="controls" id="controls"></div>
+
+  <div class="layout">
+    <div>
+      <div class="cards" id="cards"></div>
+      <details class="add" id="addBox">
+        <summary id="addSummary">목록에 없는 단골집 추가 (모두에게 보여요)</summary>
+        <form class="form" id="addForm">
+          <label>식당 이름<input id="a-name" required maxlength="40"></label>
+          <div class="two">
+            <label>메뉴 분류<select id="a-tag"></select></label>
+            <label>위치<input id="a-area" maxlength="30" placeholder="예: 나성동, 서울스퀘어"></label>
+          </div>
+          <div class="two">
+            <label>걸어서 몇 분<input id="a-walk" type="number" min="1" max="60" inputmode="numeric" placeholder="차로 가면 비워두기"></label>
+            <label>1인 가격대<select id="a-price"><option value="1">1만원 안팎</option><option value="2">1~2만원</option><option value="3">2만원 넘게</option></select></label>
+          </div>
+          <div class="two">
+            <label>대표 메뉴<input id="a-menu" maxlength="60"></label>
+            <label>전화번호<input id="a-tel" maxlength="20" inputmode="tel"></label>
+          </div>
+          <label style="display:flex;gap:8px;align-items:center;color:var(--ink);font-size:.86rem"><input id="a-room" type="checkbox" style="width:auto"> 룸·단체석이 있어 회식하기 좋아요</label>
+          <button class="btn dark" type="submit">추가</button>
+        </form>
+      </details>
+    </div>
+    <aside class="side" id="side" hidden><article class="sheet" id="sheet"></article></aside>
+  </div>
+
+  <footer>
+    <p><b>이렇게 써요.</b> 위에서 근무지를 고르고, 메뉴 타일을 누른 뒤 가고 싶은 집에 ‘한 표’를 누르면 투표판에 이름과 함께 모입니다. 표가 모인 집에 전화하거나 네이버로 예약하고 ‘예약했어요’를 누르면 같이 가는 사람 모두에게 보입니다. 투표는 근무지·점심/저녁별로 따로 모이고, 날짜가 바뀌면 새로 시작합니다. 저녁은 룸·단체석·예약 언급과 메뉴, 평점을 합쳐 회식하기 좋은 순으로 보여 줍니다.</p>
+    <p><b>데이터.</b> 위치·영업시간·전화·구글 평점은 Google 지도 장소 정보(2026년 10월 조회)입니다. 세종 89곳은 메뉴·예약 메모를 후기에서 직접 정리했고, 나머지는 상호와 업종으로 메뉴를 자동 분류했습니다. Google에 영문으로만 등록된 일부 식당은 한글 상호로 옮겨 적었습니다. 룸·단체·예약 표시는 후기에 그런 언급이 있다는 뜻이니 예약 전에 확인하세요. 가격대는 추정치입니다. 네이버 평점·리뷰·예약은 앱 밖으로 가져올 수 없어 식당마다 네이버 지도로 연결합니다. 도보 시간은 기점에서의 직선거리×1.3을 분속 70m로 나눈 값입니다. 세종의 ‘공공기관 단골' 표시는 지자체·기관장 업무추진비 공개자료에 자주 나온 집으로, <a href="https://gyyi0718.github.io/" target="_blank" rel="noopener">세금맛집(2025 지자체 업무추진비 집계)</a>, <a href="https://www.sjsori.com/news/articleView.html?idxno=53794" target="_blank" rel="noopener">세종의소리</a>, <a href="http://www.mediaboot.co.kr/news/articleView.html?idxno=12395" target="_blank" rel="noopener">미디어붓</a>, <a href="https://m.go.seoul.co.kr/news/2017/02/06/20170206037005" target="_blank" rel="noopener">서울신문 公슐랭</a> 기준입니다. ‘영업 확인 필요'는 Google에 영업시간·전화가 없고 후기도 적은 곳입니다. 없어진 집을 발견하면 상세 화면에서 ‘없어진 집이에요'를 눌러 주세요. 신고된 집은 모두의 목록에서 숨겨집니다.</p>
+  </footer>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script type="application/json" id="seed">__DATA__</script>
+<script>
+(function(){
+'use strict';
+var DATA=JSON.parse(document.getElementById('seed').textContent);
+var SITES=DATA.sites, SITE_KEYS=['sejong','banpo','yeouido','seoul'];
+var MENUS=[
+  {k:'gukbap',t:'국밥·해장국',d:'순대국밥 · 뼈해장국 · 콩나물국밥 · 곰탕'},
+  {k:'soup',t:'찌개·탕',d:'순두부 · 생태탕 · 김치찌개 · 부대찌개'},
+  {k:'noodle',t:'국수·냉면',d:'칼국수 · 냉면 · 콩국수 · 우동'},
+  {k:'katsu',t:'돈가스',d:'로스·히레카츠 · 경양식 · 치킨카츠'},
+  {k:'sushi',t:'초밥·회',d:'초밥 · 회전초밥 · 숙성회'},
+  {k:'japan',t:'덮밥·일식',d:'텐동 · 사케동 · 라멘 · 소바'},
+  {k:'chinese',t:'중식',d:'짬뽕 · 짜장 · 탕수육 · 마라탕'},
+  {k:'asian',t:'쌀국수·아시안',d:'쌀국수 · 팟타이 · 분짜 · 커리'},
+  {k:'baekban',t:'백반·정식',d:'한상 · 솥밥 · 생선구이 · 보리밥'},
+  {k:'meat',t:'고기',d:'갈비 · 불고기 · 삼겹살 · 한우'},
+  {k:'haemul',t:'낙지·해물',d:'낙지볶음 · 아구찜 · 복요리 · 장어'},
+  {k:'western',t:'파스타·양식',d:'파스타 · 피자 · 버거 · 스테이크'},
+  {k:'light',t:'김밥·분식',d:'김밥 · 떡볶이 · 만두 · 샌드위치'},
+  {k:'salad',t:'샐러드·포케',d:'포케 · 샐러드볼 · 가볍게'}
+];
+var MENU={};MENUS.forEach(function(m){MENU[m.k]=m;});
+var DINNER_ORDER=['meat','sushi','haemul','chinese','japan','soup','baekban','western','asian','gukbap','noodle','katsu','light','salad'];
+var DTITLE={japan:'이자카야·일식',baekban:'한정식·한식',soup:'전골·샤브',chinese:'중식 요리',sushi:'횟집·초밥'};
+var DDESC={meat:'한우 · 삼겹살 · 갈비 · 곱창',sushi:'횟집 · 오마카세 · 참치',haemul:'낙지 · 조개전골 · 아구찜 · 장어',chinese:'중식 코스 · 요리 · 양꼬치',
+  japan:'이자카야 · 장어덮밥 · 일식 요리',soup:'샤브샤브 · 곱창전골 · 조개전골',baekban:'한정식 · 한상 · 보리굴비',western:'파스타 · 스테이크 · 와인'};
+var PRICE={1:'1만원 안팎',2:'1~2만원',3:'2만원 넘게'};
+var PUB={
+  taxmap2025:{t:'2025년 세종시 업무추진비 결제 1위 (99회)',s:'전국 지자체 공개 업무추진비를 모은 ‘세금맛집’ 집계',u:'https://gyyi0718.github.io/'},
+  sjsori:{t:'세종시청 부서 업무추진비 월간 최다 이용 (13회)',s:'세종의소리 보도. 보도 당시 보람동 매장 기준이라 지금 매장과 같은 곳인지 확인이 필요합니다',u:'https://www.sjsori.com/news/articleView.html?idxno=53794'},
+  mayor2018:{t:'세종시장 업무추진비 자주 쓴 식당 (2018)',s:'미디어붓의 세종시장 2018년 업무추진비 1년치 분석',u:'http://www.mediaboot.co.kr/news/articleView.html?idxno=12395'},
+  gongslang:{t:'공무원 추천 ‘公슐랭’ · 실·국 회식 장소로 소개',s:'서울신문 퍼블릭IN, 해양수산부 명예기자 추천(2017, 세종1번가 무교동 낙지)',u:'https://m.go.seoul.co.kr/news/2017/02/06/20170206037005'}
+};
+var DOW=['일','월','화','수','목','금','토'];
+var RANGES={
+  sejong:{lunch:[['near','도보 10분 내'],['fc','도보 25분 내'],['car','차량 이동까지']],lunchDef:'fc',
+          dinner:[['dn','도담동·나성동'],['dodam','도담동'],['naseong','나성동'],['eojin','청사 주변'],['all','세종 전체']],dinnerDef:'dn'},
+  seoulish:{lunch:[['w10','도보 10분'],['w15','도보 15분'],['all','도보 25분까지']],lunchDef:'w15',
+          dinner:[['w10','도보 10분'],['w15','도보 15분'],['all','도보 25분까지']],dinnerDef:'all'}
+};
+
+/* ---- state ---- */
+var S={site:'sejong',meal:'lunch',menu:null,ranges:{},opts:['open'],price:[],q:'',sel:null,lucky:null,showAll:false,showGone:false};
+try{var u0=JSON.parse(localStorage.getItem('menuboard.ui2')||'{}');if(u0.site&&SITES[u0.site])S.site=u0.site;if(u0.ranges)S.ranges=u0.ranges;}catch(e){}
+var h0=(location.hash||'').replace('#','');if(SITES[h0])S.site=h0;
+function saveUI(){try{localStorage.setItem('menuboard.ui2',JSON.stringify({site:S.site,ranges:S.ranges}));}catch(e){}}
+var me=null,canWrite=false,votes={},reviews={},extra={},names={},shared=false,db=null,userCap=null;
+
+/* ---- helpers ---- */
+function el(t,a,k){var e=document.createElement(t);if(a)for(var x in a){var v=a[x];if(v==null||v===false)continue;if(x==='text')e.textContent=v;else if(x.slice(0,2)==='on')e.addEventListener(x.slice(2),v);else e.setAttribute(x,v===true?'':v);}(k||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==='string'?document.createTextNode(c):c);});return e;}
+function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function hav(a,b,c,d){var R=6371000,r=Math.PI/180,h=Math.pow(Math.sin((c-a)*r/2),2)+Math.cos(a*r)*Math.cos(c*r)*Math.pow(Math.sin((d-b)*r/2),2);return 2*R*Math.asin(Math.sqrt(h));}
+function walkMin(m){return Math.max(2,Math.round(m*1.3/70));}
+function driveMin(m){return Math.max(5,Math.round(m*1.35/400)+4);}
+function site(){return SITES[S.site];}
+function isSejong(){return S.site==='sejong';}
+function access(p){
+  if(p.custom)return p.walk?{w:1,m:p.walk}:{w:0,m:null};
+  var w=walkMin(p.d);
+  if(p.s!=='sejong')return {w:1,m:w};
+  return w<=25?{w:1,m:w}:{w:0,m:driveMin(p.d)};
+}
+function hm(x){return Math.floor(x/60)+':'+String(x%60).padStart(2,'0');}
+function closedToday(p){return !!p.closed&&p.closed.indexOf(DOW[new Date().getDay()])>=0;}
+function naverUrl(p){return 'https://map.naver.com/p/search/'+encodeURIComponent(p.name+' '+(p.s==='sejong'?'세종':(p.area||'').split(' ')[0]||'서울'));}
+function kakaoUrl(p){return 'https://map.kakao.com/?q='+encodeURIComponent(p.name+' '+(p.s==='sejong'?'세종':'서울'));}
+function toast(m){var t=document.getElementById('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){t.hidden=true;},2400);}
+function nameOf(uid){return uid===me?'나':(names[uid]||'동료');}
+function allPlaces(){return DATA.places.concat(Object.keys(extra).map(function(k){return extra[k];}));}
+function places(){return allPlaces().filter(function(p){return (p.s||'sejong')===S.site;});}
+function cafes(){return DATA.cafes.filter(function(c){return c.s===S.site;});}
+function byId(id){var a=allPlaces();for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null;}
+function copy(text){var done=function(){toast(text+' 복사했어요');};try{navigator.clipboard.writeText(text).then(done,function(){toast(text);});}catch(e){toast(text);}}
+function rangeDef(){var R=isSejong()?RANGES.sejong:RANGES.seoulish;return {list:R[S.meal],def:R[S.meal+'Def']};}
+function curRange(){var k=S.site+':'+S.meal,rd=rangeDef();var v=S.ranges[k];if(!v||!rd.list.some(function(x){return x[0]===v;}))v=rd.def;return v;}
+function rangeLabel(){var v=curRange();var f=rangeDef().list.filter(function(x){return x[0]===v;})[0];return f?f[1]:'';}
+function vkey(){return S.site+':'+S.meal;}
+
+/* ---- votes ---- */
+function voteOf(doc){if(!doc)return null;var v=doc[vkey()];if(!v&&S.site==='sejong')v=doc[S.meal];return v;}
+function todayVotes(){var t=today(),out=[];Object.keys(votes).forEach(function(uid){var v=voteOf(votes[uid]);if(v&&v.date===t)out.push({uid:uid,v:v});});return out;}
+function myVote(){var v=me&&voteOf(votes[me]);return v&&v.date===today()?v:null;}
+function setMyVote(v){
+  if(!me){toast('투표는 Claude에 로그인해야 할 수 있어요');return;}
+  if(!canWrite){toast('보기 전용으로 열려 있어 투표할 수 없어요');return;}
+  var doc=Object.assign({},votes[me]||{});doc[vkey()]=v;if(S.site==='sejong')delete doc[S.meal];votes[me]=doc;renderAll();
+  writeVote(doc).catch(function(){toast('투표를 저장하지 못했어요. 다시 눌러 주세요');});
+}
+function votePlace(p){var mv=myVote();if(mv&&mv.place===p.id){setMyVote(null);toast('표를 거뒀어요');return;}
+  var tag=S.menu&&p.tags.indexOf(S.menu)>=0?S.menu:p.tags[0];setMyVote({date:today(),menu:tag,place:p.id,booked:false});toast(p.name+'에 한 표');}
+function markBooked(pid,on){var mv=myVote();if(!mv||mv.place!==pid){setMyVote({date:today(),menu:byId(pid).tags[0],place:pid,booked:on});}else{setMyVote(Object.assign({},mv,{booked:on}));}toast(on?'예약했다고 알렸어요':'예약 표시를 지웠어요');}
+
+/* ---- reviews ---- */
+function placeReviews(pid){var out=[];Object.keys(reviews).forEach(function(uid){var it=reviews[uid]&&reviews[uid].items&&reviews[uid].items[pid];if(it&&it.s)out.push({uid:uid,r:it});});return out.sort(function(a,b){return (b.r.d||'').localeCompare(a.r.d||'');});}
+function goneCount(pid){var n=0;Object.keys(reviews).forEach(function(uid){var g=reviews[uid]&&reviews[uid].gone;if(g&&g[pid])n++;});return n;}
+function iReportedGone(pid){return !!(me&&reviews[me]&&reviews[me].gone&&reviews[me].gone[pid]);}
+function myReviewDoc(){var r=(me&&reviews[me])||{};return {items:Object.assign({},r.items||{}),gone:Object.assign({},r.gone||{})};}
+function setGone(p,on){if(!(me&&canWrite)){toast('신고는 편집 권한으로 초대받은 사람만 할 수 있어요');return;}var doc=myReviewDoc();if(on)doc.gone[p.id]=today();else delete doc.gone[p.id];reviews[me]=doc;renderAll();toast(on?p.name+'을(를) 목록에서 숨겼어요':'신고를 취소했어요');writeReviews(doc).catch(function(){toast('저장하지 못했어요. 다시 눌러 주세요');});}
+function teamScore(pid){var r=placeReviews(pid);if(!r.length)return null;var s=0;r.forEach(function(x){s+=x.r.s;});return {avg:s/r.length,n:r.length};}
+
+/* ---- 회식 score ---- */
+function hoesik(p){
+  var s=0,t=p.tags[0];
+  if(p.room)s+=3;if(p.grp)s+=2;if(p.rsv==='yes')s+=2;else if(p.rsv==='rec')s+=1;
+  if(['meat','sushi','haemul','chinese'].indexOf(t)>=0)s+=1.5;else if(t==='japan')s+=1;else if(t==='soup'||t==='baekban')s+=.5;
+  if(['light','salad','katsu'].indexOf(t)>=0)s-=3;else if(t==='gukbap'||t==='noodle')s-=1.5;else if(t==='asian')s-=.5;
+  if(p.g&&p.gn){if(p.gn>=30&&p.g>=4.2)s+=1;if(p.gn>=150)s+=1;}
+  if(p.price>=2)s+=.5;if(p.pub)s+=1;
+  var ts=teamScore(p.id);if(ts)s+=(ts.avg-3);
+  return s;
+}
+
+/* ---- sites ---- */
+function renderSites(){
+  var n=document.getElementById('sites');n.innerHTML='';
+  SITE_KEYS.forEach(function(k){var s=SITES[k];
+    n.appendChild(el('button',{'aria-pressed':String(S.site===k),onclick:function(){switchSite(k);}},[el('b',{text:s.name}),el('span',{text:s.origin})]));});
+}
+function switchSite(k){if(S.site===k)return;S.site=k;S.menu=null;S.sel=null;S.lucky=null;S.showAll=false;saveUI();
+  try{history.replaceState(null,'','#'+k);}catch(e){try{location.hash=k;}catch(e2){}}
+  closeSheet();renderAll();window.scrollTo({top:0});}
+
+/* ---- board ---- */
+function renderBoard(){
+  var b=document.getElementById('board');b.innerHTML='';
+  var tv=todayVotes();
+  b.appendChild(el('div',{class:'board-head'},[el('h2',{text:'오늘 '+(S.meal==='lunch'?'점심':'저녁')+' 투표 · '+site().name}),el('span',{class:'who',text:tv.length?(tv.length+'명 참여'):''})]));
+  if(!tv.length)b.appendChild(el('p',{class:'empty',text:S.meal==='lunch'?'아직 아무도 고르지 않았어요. 아래에서 메뉴를 고르고 가고 싶은 집에 한 표를 던지세요.':'회식 장소를 정하는 중이라면 후보에 한 표씩 던져 보세요. 룸·단체석이 언급된 곳이 위에 나와요.'}));
+  var groups={};tv.forEach(function(x){var key=x.v.place?('p:'+x.v.place):('m:'+x.v.menu);(groups[key]=groups[key]||[]).push(x);});
+  var keys=Object.keys(groups).sort(function(a,c){return groups[c].length-groups[a].length||(a[0]==='p'?-1:1);});
+  var max=keys.length?groups[keys[0]].length:1,tally=el('div',{class:'tally'});
+  keys.forEach(function(key){
+    var arr=groups[key],isP=key[0]==='p',id=key.slice(2),p=isP?byId(id):null;
+    if(isP&&!p)return;
+    var label=isP?p.name:(MENU[id]?MENU[id].t:'메뉴');
+    var sub=isP?((MENU[arr[0].v.menu]?MENU[arr[0].v.menu].t:'')+' · '+(access(p).w?'도보 '+access(p).m+'분':'차량')):'집은 아직';
+    var booked=arr.filter(function(x){return x.v.booked;});
+    var row=el('div',{class:'trow'},[el('div',{class:'tn'},[label,el('small',{text:sub})]),el('div',{class:'cnt'},[String(arr.length),el('small',{text:'명'})]),
+      el('div',{class:'bar'},[el('i',{style:'width:'+Math.round(arr.length/max*100)+'%'})]),
+      el('div',{class:'names'},arr.map(function(x){return el('span',{class:'nm'+(x.uid===me?' me':''),text:nameOf(x.uid)});}))]);
+    var acts=el('div',{class:'acts'});
+    if(isP){
+      if(booked.length)acts.appendChild(el('span',{class:'booked',text:'✓ '+booked.map(function(x){return nameOf(x.uid);}).join(', ')+' 예약 완료'}));
+      if(p.tel)acts.appendChild(el('button',{class:'btn',onclick:function(){copy(p.tel);},'aria-label':'전화번호 복사'},[el('span',{class:'tel',text:p.tel})]));
+      acts.appendChild(el('a',{class:'btn naver',href:naverUrl(p),target:'_blank',rel:'noopener',text:'네이버 예약'}));
+      var iB=booked.some(function(x){return x.uid===me;});
+      acts.appendChild(el('button',{class:'btn',disabled:!canWrite||null,onclick:function(){markBooked(p.id,!iB);},text:iB?'예약 표시 취소':'예약했어요'}));
+      acts.appendChild(el('button',{class:'btn',onclick:function(){select(p.id);},text:'자세히'}));
+    }
+    row.appendChild(acts);tally.appendChild(row);
+  });
+  b.appendChild(tally);
+  if(!shared)b.appendChild(el('div',{class:'banner',text:'지금은 공유 저장소에 연결되지 않아 내 표·후기가 이 기기에만 남아요. 함께 투표하려면 Claude에 로그인하고, 편집 권한으로 초대받은 링크로 열어 주세요.'}));
+  else if(!canWrite)b.appendChild(el('div',{class:'banner',text:'링크로 보는 중이라 메뉴·식당 정보만 볼 수 있어요. 투표와 후기는 편집 권한으로 초대받으면 할 수 있어요.'}));
+}
+
+/* ---- range / filters ---- */
+function inRange(p){
+  var v=curRange(),a=access(p);
+  if(isSejong()&&S.meal==='lunch'){
+    if(v==='near')return !!a.w&&a.m<=10;
+    if(v==='fc')return !!a.w&&a.m!=null&&a.m<=25;
+    return true;
+  }
+  if(isSejong()&&S.meal==='dinner'){
+    var dg=p.dong||'';
+    if(v==='dn')return dg==='도담동'||dg==='나성동';
+    if(v==='dodam')return dg==='도담동';
+    if(v==='naseong')return dg==='나성동';
+    if(v==='eojin')return dg==='어진동';
+    return true;
+  }
+  if(v==='w10')return a.m!=null&&a.m<=10;
+  if(v==='w15')return a.m!=null&&a.m<=15;
+  return true;
+}
+function baseOk(p){if(S.meal==='lunch'&&!p.lunch)return false;if(S.meal==='dinner'&&!p.dinner)return false;return true;}
+function renderTiles(){
+  var box=document.getElementById('tiles');box.innerHTML='';
+  var dinner=S.meal==='dinner';
+  document.getElementById('tilesTitle').textContent=dinner?'회식 메뉴부터 골라요':'메뉴부터 골라요';
+  var tv=todayVotes(),vc={};tv.forEach(function(x){vc[x.v.menu]=(vc[x.v.menu]||0)+1;});
+  var order=dinner?DINNER_ORDER.map(function(k){return MENU[k];}):MENUS;
+  var pool=places().filter(function(p){return baseOk(p)&&inRange(p)&&!closedToday(p)&&!goneCount(p.id);});
+  order.forEach(function(m){
+    var list=pool.filter(function(p){return p.tags.indexOf(m.k)>=0;});
+    var near=list.map(function(p){return access(p).m||99;}).sort(function(a,b){return a-b;})[0];
+    var hs=list.filter(function(p){return hoesik(p)>=4;}).length;
+    var tc=!list.length?'이 범위엔 없음':(dinner?(list.length+'곳'+(hs?' · 회식 추천 '+hs:'')):(list.length+'곳 · 가장 가까운 '+near+'분'));
+    box.appendChild(el('button',{class:'tile','aria-pressed':String(S.menu===m.k),onclick:function(){pickMenu(m.k);}},[
+      el('span',{class:'tt',text:dinner&&DTITLE[m.k]?DTITLE[m.k]:m.t}),el('span',{class:'td',text:dinner&&DDESC[m.k]?DDESC[m.k]:m.d}),
+      el('span',{class:'tc'+(list.length?'':' none'),text:tc}),vc[m.k]?el('span',{class:'vb',text:vc[m.k]+'표'}):null]));
+  });
+  box.appendChild(el('button',{class:'tile any',onclick:randomPick},[el('span',{class:'tt',text:'아무거나'}),
+    el('span',{class:'td',text:dinner?'회식하기 좋은 곳 중에서 하나 뽑아요':'고르기 지쳤을 때, 메뉴와 집을 하나 뽑아요'}),el('span',{class:'tc',text:'후기 평점 반영'})]));
+  document.getElementById('tileHint').textContent='숫자는 ‘'+rangeLabel()+'’ 범위의 집 수예요';
+}
+function pickMenu(k){S.menu=S.menu===k?null:k;S.lucky=null;S.showAll=false;renderAll();
+  document.getElementById('placesHead').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});}
+function randomPick(){
+  var pool=places().filter(function(p){return baseOk(p)&&inRange(p)&&!closedToday(p)&&!goneCount(p.id);});
+  if(S.meal==='dinner')pool=pool.filter(function(p){return hoesik(p)>=2;});
+  if(!pool.length){toast('이 범위 안에 열린 집이 없어요');return;}
+  var w=pool.map(function(p){var x=1,s=teamScore(p.id);if(s)x*=[.2,.2,.5,1,1.6,2.2][Math.round(s.avg)];if(p.g&&p.gn>20&&p.g>=4.4)x*=1.3;if(S.meal==='dinner')x*=1+Math.max(0,hoesik(p))/3;return x;});
+  var tot=w.reduce(function(a,b){return a+b;},0),r=Math.random()*tot,i=0;for(;i<pool.length;i++){r-=w[i];if(r<=0)break;}
+  var p=pool[Math.min(i,pool.length-1)];S.menu=p.tags[0];S.lucky=p.id;S.showAll=true;renderAll();
+  var c=document.getElementById('card-'+p.id);if(c)c.scrollIntoView({behavior:'smooth',block:'center'});
+}
+var qEl=null;function searchInput(){if(qEl)return qEl;qEl=el('input',{class:'search',type:'search',id:'q',placeholder:'집·메뉴 검색 (예: 생태탕)','aria-label':'검색'});
+  var t;qEl.addEventListener('input',function(){clearTimeout(t);t=setTimeout(function(){S.q=qEl.value.trim();renderPlaces();},150);});return qEl;}
+function chip(label,on,fn,cls){return el('button',{class:'chip'+(cls?' '+cls:''),'aria-pressed':String(!!on),onclick:fn,text:label});}
+function tog(arr,v){var i=arr.indexOf(v);if(i>=0)arr.splice(i,1);else arr.push(v);}
+function renderControls(){
+  var c=document.getElementById('controls');c.innerHTML='';
+  var cur=curRange();
+  rangeDef().list.forEach(function(o){c.appendChild(chip(o[1],cur===o[0],function(){S.ranges[S.site+':'+S.meal]=o[0];saveUI();S.showAll=false;renderAll();},'area'));});
+  c.appendChild(el('span',{class:'sep'}));
+  c.appendChild(chip('오늘 영업',S.opts.indexOf('open')>=0,function(){tog(S.opts,'open');renderAll();}));
+  if(S.meal==='dinner'){
+    c.appendChild(chip('룸·단체석',S.opts.indexOf('room')>=0,function(){tog(S.opts,'room');renderAll();}));
+    c.appendChild(chip('예약 언급',S.opts.indexOf('rsv')>=0,function(){tog(S.opts,'rsv');renderAll();}));
+    if(isSejong())c.appendChild(chip('공공기관 단골',S.opts.indexOf('pub')>=0,function(){tog(S.opts,'pub');renderAll();}));
+  } else {
+    c.appendChild(chip('예약 가능',S.opts.indexOf('rsv')>=0,function(){tog(S.opts,'rsv');renderAll();}));
+    c.appendChild(chip('1만원 안팎',S.price.indexOf(1)>=0,function(){tog(S.price,1);renderAll();}));
+  }
+  c.appendChild(chip('후기 평점 4+',S.opts.indexOf('team4')>=0,function(){tog(S.opts,'team4');renderAll();},'hot'));
+  c.appendChild(searchInput());
+}
+function filtered(){
+  var q=S.q.toLowerCase(),dinner=S.meal==='dinner';
+  return places().filter(function(p){
+    if(!baseOk(p))return false;
+    if(!S.showGone&&goneCount(p.id))return false;
+    if(S.menu&&p.tags.indexOf(S.menu)<0)return false;
+    if(!inRange(p))return false;
+    if(S.opts.indexOf('open')>=0&&closedToday(p))return false;
+    if(S.opts.indexOf('rsv')>=0&&!(p.rsv==='yes'||p.rsv==='rec'))return false;
+    if(dinner&&S.opts.indexOf('room')>=0&&!(p.room||p.grp))return false;
+    if(dinner&&S.opts.indexOf('pub')>=0&&!p.pub)return false;
+    if(S.opts.indexOf('team4')>=0){var ts=teamScore(p.id);if(!ts||ts.avg<4)return false;}
+    if(!dinner&&S.price.length&&S.price.indexOf(p.price)<0)return false;
+    if(q&&(p.name+' '+p.menu+' '+p.area+' '+(p.rom||'')).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  }).map(function(p){return {p:p,h:dinner?hoesik(p):0,a:access(p)};}).sort(function(x,y){
+    if(dinner&&Math.abs(y.h-x.h)>=.5)return y.h-x.h;
+    return (x.a.w?x.a.m:100+(x.a.m||60))-(y.a.w?y.a.m:100+(y.a.m||60));
+  }).map(function(x){return x.p;});
+}
+function pillsFor(p){
+  var o=[],ts=teamScore(p.id);
+  if(S.meal==='dinner'&&hoesik(p)>=4)o.push(el('span',{class:'pill hs',text:'회식 추천'}));
+  if(ts)o.push(el('span',{class:'pill team',text:'후기 ★'+ts.avg.toFixed(1)+' ('+ts.n+')'}));
+  if(p.rsv==='yes')o.push(el('span',{class:'pill rsv',text:'예약 가능'}));else if(p.rsv==='rec')o.push(el('span',{class:'pill rsv',text:p.auto?'예약 언급':'예약 권장'}));
+  if(p.room)o.push(el('span',{class:'pill',text:'룸·별실'}));
+  if(p.grp&&!p.room)o.push(el('span',{class:'pill',text:'단체 방문 후기'}));
+  if(p.pub)o.push(el('span',{class:'pill pub',text:'공공기관 단골'}));
+  if(p.chk)o.push(el('span',{class:'pill off',text:'영업 확인 필요'}));
+  var gc=goneCount(p.id);if(gc)o.push(el('span',{class:'pill off',text:'폐업·이전 신고 '+gc+'건'}));
+  if(p.closed)o.push(el('span',{class:'pill off',text:p.closed+' 휴무'}));
+  if(S.meal==='lunch'&&p.lunch&&!p.dinner)o.push(el('span',{class:'pill off',text:'저녁 일찍 닫음'}));
+  if(p.custom)o.push(el('span',{class:'pill',text:'직접 추가한 집'}));
+  return o;
+}
+function renderPlaces(){
+  var list=filtered(),dinner=S.meal==='dinner';
+  var title=S.menu?((dinner&&DTITLE[S.menu]?DTITLE[S.menu]:MENU[S.menu].t)+(dinner?' · 회식':' · 가까운 집')):(dinner?'회식하기 좋은 집':'가까운 집');
+  document.getElementById('placesTitle').textContent=title;
+  document.getElementById('placesCount').textContent=list.length+'곳 · '+rangeLabel()+' · '+(dinner?'회식하기 좋은 순':'가까운 순');
+  var box=document.getElementById('cards');box.innerHTML='';
+  if(!list.length){box.appendChild(el('div',{class:'more',text:'조건에 맞는 집이 없어요. 범위를 넓히거나 조건 칩을 꺼 보세요.'}));return;}
+  var mv=myVote(),tv=todayVotes(),limit=S.showAll?list.length:(S.menu?30:15);
+  list.slice(0,limit).forEach(function(p){
+    var a=access(p),gp=p.g?('구글 ★'+p.g.toFixed(1)+(p.gn?' · '+p.gn:'')):'',voted=mv&&mv.place===p.id;
+    var nv=tv.filter(function(x){return x.v.place===p.id;}).length;
+    var where=dinner&&isSejong()&&p.dong?p.dong:p.area;
+    box.appendChild(el('div',{class:'card'+(S.sel===p.id?' sel':'')+(S.lucky===p.id?' sel lucky':''),id:'card-'+p.id},[
+      el('button',{class:'pn',onclick:function(){select(p.id);},text:p.name}),
+      el('div',{class:'walk'},[el('b',{class:a.w?'':'car',text:a.m!=null?String(a.m):'–'}),el('span',{text:a.w?'분 걸어서':'분 차로'})]),
+      el('div',{class:'ps'},[el('em',{text:p.menu}),' · '+PRICE[p.price]+' · '+where+(gp?' · '+gp:'')]),
+      el('div',{class:'pills'},pillsFor(p)),
+      el('div',{class:'row'},[
+        el('button',{class:'btn vote','aria-pressed':String(!!voted),onclick:function(){votePlace(p);},text:voted?'내 표 ✓'+(nv>1?' · '+nv+'명':''):('한 표'+(nv?' · '+nv+'명':''))}),
+        el('a',{class:'btn naver',href:naverUrl(p),target:'_blank',rel:'noopener',text:'네이버 리뷰·예약'}),
+        p.tel?el('button',{class:'btn',onclick:function(){copy(p.tel);},'aria-label':p.name+' 전화번호 복사'},[el('span',{class:'tel',text:p.tel})]):null,
+        el('button',{class:'btn',onclick:function(){select(p.id);},text:dinner?'자세히·후기':'커피·후기'})])
+    ]));
+  });
+  if(list.length>limit)box.appendChild(el('button',{class:'btn',style:'justify-self:center',onclick:function(){S.showAll=true;renderPlaces();},text:'나머지 '+(list.length-limit)+'곳 더 보기'}));
+  var hid=places().filter(function(p){return goneCount(p.id);}).length;
+  if(hid)box.appendChild(el('button',{class:'btn',style:'justify-self:center',onclick:function(){S.showGone=!S.showGone;renderPlaces();},text:S.showGone?'폐업·이전 신고된 집 다시 숨기기':'폐업·이전 신고로 숨긴 '+hid+'곳 보기'}));
+}
+
+/* ---- detail ---- */
+function cafesFor(p,n){
+  var cs=cafes();if(!cs.length)return [];
+  if(p.lat==null)return cs.slice().sort(function(a,b){return a.d-b.d;}).slice(0,n).map(function(c){return {c:c,leg:null};});
+  var walk=access(p).w;
+  return cs.map(function(c){var leg=hav(p.lat,p.lng,c.lat,c.lng);return {c:c,leg:leg,cost:walk?leg+c.d:leg*1.6+c.d*.2};}).sort(function(a,b){return a.cost-b.cost;}).slice(0,n);
+}
+function flow(p){
+  var a=access(p),t=12*60,go=a.m!=null?a.m:15,st=[];
+  st.push([t,a.w?'걸어서 출발 ('+go+'분)':'차로 출발 (약 '+go+'분, 주차 포함)']);t+=go;
+  st.push([t,p.name+' 도착']);t+=(p.tags.indexOf('meat')>=0?45:(p.tags.indexOf('light')>=0?25:35));
+  var c=cafesFor(p,1)[0];
+  if(c){var leg=c.leg==null?3:walkMin(c.leg);st.push([t,c.c.name+'에서 커피 ('+(a.w||c.leg<800?'걸어서 ':'')+leg+'분)']);t+=leg+10;
+    var back=a.w?walkMin(c.c.d):driveMin(c.c.d);st.push([t,'테이크아웃해서 복귀 ('+back+'분)']);t+=back;}
+  st.push([t,site().short+' 도착']);return {st:st,end:t};
+}
+function select(id){S.sel=id;renderSheet();renderPlaces();document.getElementById('side').hidden=false;document.getElementById('sheet').scrollTop=0;}
+function closeSheet(){if(matchMedia('(max-width:959px)').matches)document.getElementById('side').hidden=true;}
+function renderSheet(){
+  var sh=document.getElementById('sheet');sh.innerHTML='';
+  var p=S.sel?byId(S.sel):null;
+  if(p&&(p.s||'sejong')!==S.site)p=null;
+  if(!p){sh.appendChild(el('div',{class:'eyebrow',text:'집을 누르면'}));sh.appendChild(el('p',{class:'side-empty',text:S.meal==='dinner'?'영업시간·전화·네이버 예약 링크, 회식 메모, 후기가 여기 열립니다.':'영업시간·전화·네이버 예약 링크, 식후 커피 동선, 다녀온 사람들 후기가 여기 열립니다.'}));return;}
+  var a=access(p),dinner=S.meal==='dinner';
+  sh.appendChild(el('div',{style:'display:flex;justify-content:space-between;align-items:center;gap:8px'},[
+    el('span',{class:'eyebrow',text:p.tags.map(function(k){return MENU[k]?MENU[k].t:k;}).join(' · ')}),el('button',{class:'btn close',onclick:closeSheet,text:'닫기'})]));
+  sh.appendChild(el('h3',{text:p.name}));
+  sh.appendChild(el('div',{class:'pills',style:'display:flex;flex-wrap:wrap;gap:4px'},pillsFor(p)));
+  var dl=el('dl',{class:'facts'});
+  function f(k,v){if(!v)return;dl.appendChild(el('dt',{text:k}));dl.appendChild(el('dd',{},[v]));}
+  f('거리',a.w?(site().short+'에서 걸어서 약 '+a.m+'분'+(p.d?' · 직선 '+p.d+'m':'')):('차로 약 '+(a.m||'?')+'분'+(p.d?' · 직선 '+(p.d/1000).toFixed(1)+'km':'')));
+  f('메뉴',p.auto?(p.menu+' · 상호·업종으로 자동 분류, 자세한 메뉴는 네이버에서'):p.menu);
+  f('가격',PRICE[p.price]+' (추정)');f('위치',p.area+(p.dong&&p.area.indexOf(p.dong)<0?' · '+p.dong:''));
+  f('영업',p.hrs?p.hrs.replace(/,/g,' / ')+(p.closed?' · '+p.closed+'요일 휴무':''):'정보 없음 · 네이버에서 확인');
+  f('예약',p.rsv==='yes'?'예약 받음 (후기 기준)':(p.rsv==='rec'?(p.auto?'후기에 예약 언급 있음':'예약 권장 (후기 기준)'):'네이버 지도에서 예약 버튼 확인'));
+  if(p.tel)f('전화',el('span',{class:'tel',text:p.tel}));
+  if(p.g)f('구글','★'+p.g.toFixed(1)+(p.gn?' · 리뷰 '+p.gn+'건':''));
+  if(p.rom)f('영문 표기',p.rom+' (Google 영문 상호를 한글로 옮겨 적었어요)');
+  if(p.note)f('메모',p.note);
+  if(p.chk)f('확인','Google에 영업시간·전화가 없고 후기도 적어요. 방문 전 네이버에서 영업 여부를 확인하세요.');
+  sh.appendChild(dl);
+  var mv=myVote(),voted=mv&&mv.place===p.id;
+  sh.appendChild(el('div',{style:'display:flex;flex-wrap:wrap;gap:6px'},[
+    el('button',{class:'btn vote','aria-pressed':String(!!voted),onclick:function(){votePlace(p);renderSheet();},text:voted?'내 표 ✓':'여기 한 표'}),
+    el('a',{class:'btn naver',href:naverUrl(p),target:'_blank',rel:'noopener',text:'네이버 리뷰·예약'}),
+    p.tel?el('button',{class:'btn',onclick:function(){copy(p.tel);},text:'전화번호 복사'}):null,
+    p.tel?el('a',{class:'btn',href:'tel:'+p.tel.replace(/-/g,''),text:'전화'}):null,
+    el('a',{class:'btn',href:kakaoUrl(p),target:'_blank',rel:'noopener',text:'카카오맵'})]));
+  if(dinner){
+    var hs=hoesik(p),memo=[];
+    if(p.room)memo.push('후기에 룸·별실 언급');if(p.grp)memo.push('단체·회식 방문 후기');if(p.rsv!=='unk')memo.push('예약 언급');
+    if(p.g&&p.gn>=30)memo.push('구글 리뷰 '+p.gn+'건 ★'+p.g.toFixed(1));
+    sh.appendChild(el('div',{class:'part'},[el('h4',{text:'회식 메모'}),el('div',{class:'hsbox'},[
+      el('b',{text:hs>=4?'회식 추천':(hs>=2?'회식 가능':'소규모 모임에 맞아요')}),
+      el('div',{text:memo.length?memo.join(' · '):'룸·단체 관련 후기는 없어요. 인원이 많으면 전화로 자리를 확인하세요.'})])]));
+  }
+  if(p.pub){var pb=PUB[p.pub];sh.appendChild(el('div',{class:'part'},[el('h4',{text:'공공기관 업무추진비 결제 기록'}),el('div',{style:'font-size:.86rem'},[el('b',{text:pb.t}),el('div',{style:'color:var(--muted)',text:pb.s}),el('a',{href:pb.u,target:'_blank',rel:'noopener',style:'color:var(--gold)',text:'출처 보기'})])]));}
+  if(!dinner){
+    var fl=flow(p),ol=el('ol',{class:'flow'});fl.st.forEach(function(s){ol.appendChild(el('li',{},[el('span',{class:'t',text:hm(s[0])}),el('span',{text:s[1]})]));});
+    var over=fl.end-780;
+    sh.appendChild(el('div',{class:'part'},[el('h4',{text:'식후 커피까지 · 12시 출발 기준'}),ol,
+      el('div',{style:'margin-top:6px;font-size:.84rem;font-weight:600;color:'+(over>0?'var(--chili)':'var(--go)'),text:over>0?('1시를 '+over+'분 넘겨요. 커피는 '+site().short+' 근처에서'):('1시까지 '+(-over)+'분 여유')})]));
+    var cl=el('div',{});cafesFor(p,3).forEach(function(o){cl.appendChild(el('div',{class:'cafe'},[el('span',{},[o.c.name,el('span',{style:'color:var(--muted)',text:' · '+o.c.kind})]),el('span',{text:(o.leg!=null?'식당에서 '+walkMin(o.leg)+'분 · ':'')+site().short+'까지 '+walkMin(o.c.d)+'분'})]));});
+    if(cl.children.length)sh.appendChild(el('div',{class:'part'},[el('h4',{text:'복귀길 카페'}),cl]));
+  } else {
+    sh.appendChild(el('div',{class:'law',text:'직무 관련자와 식사할 때는 청탁금지법상 1인 음식물 가액 한도(2024년 8월부터 5만원)를 넘지 않게 잡으세요. 업무추진비로 50만원 이상 결제하면 참석자 기록이 필요합니다.'}));
+  }
+  var rs=placeReviews(p.id),part=el('div',{class:'part'},[el('h4',{text:'후기 '+(rs.length?rs.length+'개':'')})]);
+  if(!rs.length)part.appendChild(el('p',{class:'side-empty',style:'margin:0 0 6px',text:'아직 후기가 없어요. 다녀왔다면 첫 후기를 남겨 주세요.'}));
+  rs.forEach(function(x){part.appendChild(el('div',{class:'rv'},[el('div',{class:'rh'},[el('b',{text:nameOf(x.uid)}),el('span',{class:'rs',text:'★★★★★'.slice(0,x.r.s)+'☆☆☆☆☆'.slice(0,5-x.r.s)}),el('span',{class:'rd',text:x.r.d||''})]),x.r.t?el('div',{text:x.r.t}):null]));});
+  part.appendChild(reviewForm(p));sh.appendChild(part);
+  var gc=goneCount(p.id),mine=iReportedGone(p.id);
+  sh.appendChild(el('div',{class:'part'},[el('h4',{text:'정보 바로잡기'}),el('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.84rem'},[
+    el('button',{class:'btn',disabled:!(me&&canWrite)||null,onclick:function(){setGone(p,!mine);},text:mine?'신고 취소':'없어진 집이에요 (폐업·이전)'}),
+    el('span',{style:'color:var(--muted)',text:gc?('지금까지 '+gc+'명이 신고해 목록에서 숨겨졌어요'):'신고하면 모두의 목록에서 숨겨져요'})])]));
+  if(p.custom&&p.by===me)sh.appendChild(el('button',{class:'btn',style:'margin-top:12px',text:'내가 추가한 이 집 삭제',onclick:function(e){var b=e.currentTarget;if(!b.dataset.c){b.dataset.c=1;b.textContent='한 번 더 누르면 삭제';return;}removeExtra(p.id);}}));
+}
+function reviewForm(p){
+  var mine=(me&&reviews[me]&&reviews[me].items&&reviews[me].items[p.id])||{s:0,t:''},s=mine.s||0;
+  var stars=el('div',{class:'stars',role:'group','aria-label':'별점'});
+  function paint(){Array.prototype.forEach.call(stars.children,function(b,i){b.classList.toggle('on',i<s);b.setAttribute('aria-pressed',String(i<s));});}
+  for(var i=1;i<=5;i++)(function(k){stars.appendChild(el('button',{type:'button','aria-label':k+'점',text:'★',onclick:function(){s=s===k?0:k;paint();}}));})(i);
+  paint();
+  var ta=el('textarea',{id:'rv-'+p.id,rows:'2',maxlength:'200',placeholder:S.meal==='dinner'?'한줄평 (예: 룸 10명까지, 코스 1인 4만원대)':'한줄평 (예: 12시 10분 넘으면 대기, 국물 시원)'});ta.value=mine.t||'';
+  var dis=!(me&&canWrite);
+  return el('form',{class:'form',onsubmit:function(e){e.preventDefault();
+      if(dis){toast('후기는 편집 권한으로 초대받은 사람만 남길 수 있어요');return;}
+      if(!s){toast('별점을 먼저 골라 주세요');return;}
+      var doc=myReviewDoc();doc.items[p.id]={s:s,t:ta.value.trim(),d:today()};
+      reviews[me]=doc;renderAll();toast('후기를 남겼어요');writeReviews(doc).catch(function(){toast('후기를 저장하지 못했어요. 다시 눌러 주세요');});
+    }},[el('div',{style:'font-size:.8rem;color:var(--muted)',text:mine.s?'내 후기 고치기':'내 후기 남기기'}),stars,ta,
+      el('div',{style:'display:flex;gap:8px;flex-wrap:wrap'},[el('button',{class:'btn dark',type:'submit',disabled:dis||null,text:'후기 저장'}),
+        mine.s?el('button',{class:'btn',type:'button',disabled:dis||null,text:'내 후기 지우기',onclick:function(){var doc=myReviewDoc();delete doc.items[p.id];reviews[me]=doc;renderAll();writeReviews(doc);}}):null])]);
+}
+
+/* ---- add place ---- */
+var at=document.getElementById('a-tag');MENUS.forEach(function(m){at.appendChild(el('option',{value:m.k,text:m.t}));});
+function dongFromText(t){var D=['도담동','나성동','어진동','보람동','대평동','새롬동','한솔동','아름동','종촌동','고운동','다정동','소담동','반곡동'];for(var i=0;i<D.length;i++)if(t.indexOf(D[i].slice(0,2))>=0)return D[i];return '';}
+document.getElementById('addForm').addEventListener('submit',function(e){e.preventDefault();
+  if(!(me&&canWrite)){toast('집 추가는 편집 권한으로 초대받은 사람만 할 수 있어요');return;}
+  var name=document.getElementById('a-name').value.trim();if(!name)return;
+  var w=parseInt(document.getElementById('a-walk').value,10),tag=document.getElementById('a-tag').value,area=document.getElementById('a-area').value.trim(),room=document.getElementById('a-room').checked;
+  var id='x'+Date.now().toString(36);
+  var p={id:id,s:S.site,custom:1,by:me,name:name,tags:[tag],cat:MENU[tag].t,area:area||site().name,dong:isSejong()?dongFromText(area):'',walk:isFinite(w)&&w>0?w:null,
+    price:+document.getElementById('a-price').value,menu:document.getElementById('a-menu').value.trim()||MENU[tag].t,tel:document.getElementById('a-tel').value.trim(),
+    rsv:room?'rec':'unk',room:room?1:0,grp:room?1:0,pub:null,note:'',closed:'',lunch:1,dinner:1,d:null,lat:null,lng:null,hrs:null};
+  extra[id]=p;renderAll();e.target.reset();toast(name+' 추가했어요');
+  writeExtra(id,p).catch(function(){toast('추가를 저장하지 못했어요');});
+});
+
+document.querySelectorAll('.meal button').forEach(function(b){b.addEventListener('click',function(){S.meal=b.dataset.meal;S.lucky=null;S.menu=null;S.showAll=false;
+  document.querySelectorAll('.meal button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});renderAll();});});
+document.getElementById('side').addEventListener('click',function(e){if(e.target.id==='side')closeSheet();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeSheet();});
+window.addEventListener('hashchange',function(){var h=(location.hash||'').replace('#','');if(SITES[h]&&h!==S.site)switchSite(h);});
+
+function renderAll(){
+  var d=new Date(),s=site();
+  document.getElementById('dateline').textContent=(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DOW[d.getDay()]+') · '+s.origin+' 기준 · '+s.addr+' · 식당 '+places().length+'곳';
+  document.getElementById('addSummary').textContent='목록에 없는 '+s.name+' 단골집 추가 (모두에게 보여요)';
+  renderSites();renderBoard();renderTiles();renderControls();renderPlaces();renderSheet();
+}
+
+/* ---- storage ---- */
+var LKEY='menuboard.local';
+function loadLocal(){try{var o=JSON.parse(localStorage.getItem(LKEY)||'{}');me='local';canWrite=true;votes={local:o.vote||{}};reviews={local:{items:o.items||{},gone:o.gone||{}}};extra=o.extra||{};}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({vote:votes.local||{},items:(reviews.local||{}).items||{},gone:(reviews.local||{}).gone||{},extra:extra}));}catch(e){}return Promise.resolve();}
+var writeVote=function(){return saveLocal();},writeReviews=function(){return saveLocal();},writeExtra=function(){return saveLocal();},
+    removeExtra=function(id){delete extra[id];S.sel=null;closeSheet();renderAll();return saveLocal();};
+
+loadLocal();renderAll();
+document.getElementById('side').hidden=matchMedia('(max-width:959px)').matches;
+
+(async function connect(){
+  if(!window.claude||!window.claude.use)return;
+  try{
+    var r=await Promise.all([window.claude.use('db'),window.claude.use('user')]);db=r[0];userCap=r[1];
+    if(!db||!userCap)return;
+    var uid=await userCap.id();if(!uid)return;
+    var local={items:(reviews.local||{}).items};
+    me=uid;shared=true;votes={};reviews={};extra={};
+    var cw=await userCap.can('data.write');canWrite=cw!==false;
+    renderAll();
+    var ids={};
+    function resolveNames(){var need=Object.keys(ids).filter(function(k){return !names[k]&&k!==me;});if(!need.length)return;
+      userCap.profiles(need).then(function(ps){need.forEach(function(k){names[k]=(ps&&ps[k]&&ps[k].name)||'동료';});renderAll();}).catch(function(){});}
+    db.collection('votes').onSnapshot(function(s){var o={};s.docs.forEach(function(d){var v=d.data();if(v){o[d.id]=v;ids[d.id]=1;}});votes=o;resolveNames();renderAll();},function(){});
+    var firstRv=true;
+    db.collection('reviews').onSnapshot(function(s){var o={};s.docs.forEach(function(d){var v=d.data();if(v){o[d.id]=v;ids[d.id]=1;}});reviews=o;
+      if(firstRv){firstRv=false;var li=local.items||{};if(Object.keys(li).length&&canWrite){reviews[me]={items:Object.assign({},li,(o[me]&&o[me].items)||{})};writeReviews(reviews[me]).catch(function(){});}}
+      resolveNames();renderAll();},function(){});
+    db.collection('extra').onSnapshot(function(s){var o={};s.docs.forEach(function(d){var v=d.data();if(v&&v.place)o[d.id]=Object.assign({s:'sejong'},v.place);});extra=o;renderAll();},function(){});
+    writeVote=function(doc){return db.doc('votes/'+me).set(doc);};
+    writeReviews=function(doc){return db.doc('reviews/'+me).set(doc);};
+    writeExtra=function(id,p){return db.doc('extra/'+id).set({place:p});};
+    removeExtra=function(id){delete extra[id];S.sel=null;closeSheet();renderAll();return db.doc('extra/'+id).delete();};
+  }catch(e){}
+})();
+})();
+</script>

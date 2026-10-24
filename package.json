@@ -1,0 +1,6 @@
+{
+  "name": "lunch-today",
+  "private": true,
+  "description": "오늘 뭐 먹지 — 근무지별 점심·회식 메뉴 선택 앱",
+  "engines": { "node": ">=18" }
+}
