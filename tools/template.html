@@ -555,7 +555,7 @@ function cafesFor(p,n){
   return cs.map(function(c){var leg=hav(p.lat,p.lng,c.lat,c.lng);return {c:c,leg:leg,cost:walk?leg+c.d:leg*1.6+c.d*.2};}).sort(function(a,b){return a.cost-b.cost;}).slice(0,n);
 }
 function flow(p){
-  var a=access(p),t=12*60,go=a.m!=null?a.m:15,st=[];
+  var a=access(p),t=11*60+40,go=a.m!=null?a.m:15,st=[];
   st.push([t,a.w?'걸어서 출발 ('+go+'분)':'차로 출발 (약 '+go+'분, 주차 포함)']);t+=go;
   st.push([t,p.name+' 도착']);t+=(p.tags.indexOf('meat')>=0?45:(p.tags.indexOf('light')>=0?25:35));
   var c=cafesFor(p,1)[0];
@@ -609,7 +609,7 @@ function renderSheet(){
   if(!dinner){
     var fl=flow(p),ol=el('ol',{class:'flow'});fl.st.forEach(function(s){ol.appendChild(el('li',{},[el('span',{class:'t',text:hm(s[0])}),el('span',{text:s[1]})]));});
     var over=fl.end-780;
-    sh.appendChild(el('div',{class:'part'},[el('h4',{text:'식후 커피까지 · 12시 출발 기준'}),ol,
+    sh.appendChild(el('div',{class:'part'},[el('h4',{text:'식후 커피까지 · 11시 40분 출발 기준'}),ol,
       el('div',{style:'margin-top:6px;font-size:.84rem;font-weight:600;color:'+(over>0?'var(--chili)':'var(--go)'),text:over>0?('1시를 '+over+'분 넘겨요. 커피는 '+site().short+' 근처에서'):('1시까지 '+(-over)+'분 여유')})]));
     var cl=el('div',{});cafesFor(p,3).forEach(function(o){cl.appendChild(el('div',{class:'cafe'},[el('span',{},[o.c.name,el('span',{style:'color:var(--muted)',text:' · '+o.c.kind})]),el('span',{text:(o.leg!=null?'식당에서 '+walkMin(o.leg)+'분 · ':'')+site().short+'까지 '+walkMin(o.c.d)+'분'})]));});
     if(cl.children.length)sh.appendChild(el('div',{class:'part'},[el('h4',{text:'복귀길 카페'}),cl]));
