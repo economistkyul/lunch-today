@@ -151,6 +151,7 @@ header.top p{margin:4px 0 0;color:var(--muted);font-size:.86rem}
 .form{display:grid;gap:8px;margin-top:8px}
 .form textarea,.form input,.form select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px}
 .form label{font-size:.78rem;color:var(--muted);display:grid;gap:3px}
+.form [hidden]{display:none!important}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .law{background:var(--bg);border-radius:10px;padding:10px 12px;font-size:.82rem;margin-top:12px;color:var(--muted)}
 .hsbox{background:var(--gold-soft);border-radius:10px;padding:10px 12px;font-size:.84rem;margin-top:4px}
@@ -214,11 +215,19 @@ footer a{color:var(--muted)}
             <label>1인 가격대<select id="a-price"><option value="1">1만원 안팎</option><option value="2">1~2만원</option><option value="3">2만원 넘게</option></select></label>
           </div>
           <div class="two">
+            <label>식사 시간 (분)<input id="a-eat" type="number" min="5" max="180" inputmode="numeric" placeholder="예: 35"></label>
+            <label>식후에 들를 카페<input id="a-cafe" maxlength="30" placeholder="비워두면 가까운 곳 추천"></label>
+          </div>
+          <div class="two">
+            <label>카페까지 (분)<input id="a-cleg" type="number" min="0" max="60" inputmode="numeric" placeholder="예: 3"></label>
+            <label>카페→복귀 (분)<input id="a-cback" type="number" min="0" max="90" inputmode="numeric" placeholder="예: 10"></label>
+          </div>
+          <div class="two">
             <label>대표 메뉴<input id="a-menu" maxlength="60"></label>
             <label>전화번호<input id="a-tel" maxlength="20" inputmode="tel"></label>
           </div>
           <label style="display:flex;gap:8px;align-items:center;color:var(--ink);font-size:.86rem"><input id="a-room" type="checkbox" style="width:auto"> 룸·단체석이 있어 회식하기 좋아요</label>
-          <button class="btn dark" type="submit">추가</button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn dark" type="submit" id="a-submit">추가</button><button class="btn" type="button" id="a-cancel" hidden>고치기 취소</button></div>
         </form>
       </details>
     </div>
@@ -336,7 +345,7 @@ function vkey(){return S.site+':'+S.meal;}
 function placeReviews(pid){var out=[];Object.keys(reviews).forEach(function(uid){var it=reviews[uid]&&reviews[uid].items&&reviews[uid].items[pid];if(it&&it.s)out.push({uid:uid,r:it});});return out.sort(function(a,b){return (b.r.d||'').localeCompare(a.r.d||'');});}
 function goneCount(pid){var n=0;Object.keys(reviews).forEach(function(uid){var g=reviews[uid]&&reviews[uid].gone;if(g&&g[pid])n++;});return n;}
 function iReportedGone(pid){return !!(me&&reviews[me]&&reviews[me].gone&&reviews[me].gone[pid]);}
-function myReviewDoc(){var r=(me&&reviews[me])||{};return {items:Object.assign({},r.items||{}),gone:Object.assign({},r.gone||{})};}
+function myReviewDoc(){var r=(me&&reviews[me])||{};return {items:Object.assign({},r.items||{}),gone:Object.assign({},r.gone||{}),tm:Object.assign({},r.tm||{})};}
 function setGone(p,on){if(!(me&&canWrite)){toast('신고는 편집 권한으로 초대받은 사람만 할 수 있어요');return;}var doc=myReviewDoc();if(on)doc.gone[p.id]=today();else delete doc.gone[p.id];reviews[me]=doc;renderAll();toast(on?p.name+'을(를) 목록에서 숨겼어요':'신고를 취소했어요');writeReviews(doc).catch(function(){toast('저장하지 못했어요. 다시 눌러 주세요');});}
 function teamScore(pid){var r=placeReviews(pid);if(!r.length)return null;var s=0;r.forEach(function(x){s+=x.r.s;});return {avg:s/r.length,n:r.length};}
 
@@ -523,16 +532,70 @@ function cafesFor(p,n){
   var walk=access(p).w;
   return cs.map(function(c){var leg=hav(p.lat,p.lng,c.lat,c.lng);return {c:c,leg:leg,cost:walk?leg+c.d:leg*1.6+c.d*.2};}).sort(function(a,b){return a.cost-b.cost;}).slice(0,n);
 }
-function flow(p){
-  var a=access(p),t=11*60+40,go=a.m!=null?a.m:15,st=[];
-  st.push([t,a.w?'걸어서 출발 ('+go+'분)':'차로 출발 (약 '+go+'분, 주차 포함)']);t+=go;
-  st.push([t,p.name+' 도착']);t+=(p.tags.indexOf('meat')>=0?45:(p.tags.indexOf('light')>=0?25:35));
-  var c=cafesFor(p,1)[0];
-  if(c){var leg=c.leg==null?3:walkMin(c.leg);st.push([t,c.c.name+'에서 커피 ('+(a.w||c.leg<800?'걸어서 ':'')+leg+'분)']);t+=leg+10;
-    var back=a.w?walkMin(c.c.d):driveMin(c.c.d);st.push([t,'테이크아웃해서 복귀 ('+back+'분)']);t+=back;}
-  st.push([t,site().short+' 도착']);return {st:st,end:t};
+/* 식후 커피 동선: 출발·복귀 시각은 각자 기기에, 구간별 시간 고친 값은 모두와 공유(가장 최근 값 사용) */
+var TKEY='menuboard.times';
+function myTimes(){var o={};try{o=JSON.parse(localStorage.getItem(TKEY)||'{}')||{};}catch(e){}return {start:o.start||'11:40',end:o.end||'13:00'};}
+function setMyTimes(o){try{localStorage.setItem(TKEY,JSON.stringify(o));}catch(e){}}
+function toMin(v){var m=/^(\d{1,2}):(\d{2})$/.exec(v||'');return m?(+m[1])*60+(+m[2]):null;}
+function hhmmLabel(v){var m=toMin(v);if(m==null)return v;var h=Math.floor(m/60),mm=m%60;return h+'시'+(mm?' '+mm+'분':'');}
+function timeFix(pid){var best=null;Object.keys(reviews).forEach(function(uid){var o=reviews[uid]&&reviews[uid].tm&&reviews[uid].tm[pid];if(o&&(!best||(o.t||0)>(best.o.t||0)))best={uid:uid,o:o};});return best;}
+function guardWrite(after){if(!(me&&canWrite)){toast('고치기는 편집 권한으로 초대받은 사람만 할 수 있어요');return false;}return true;}
+function setTimeFix(p,o){if(!guardWrite(function(){setTimeFix(p,o);}))return;var doc=myReviewDoc();if(o)doc.tm[p.id]=o;else delete doc.tm[p.id];reviews[me]=doc;renderAll();
+  toast(o?'고친 시간을 모두에게 저장했어요':'원래 계산으로 되돌렸어요');writeReviews(doc).catch(function(){toast('저장하지 못했어요. 다시 눌러 주세요');});}
+function flowParts(p){
+  var a=access(p),f=timeFix(p.id),o=f?f.o:{},cs=cafesFor(p,5);
+  var go=o.go!=null?o.go:(a.m!=null?a.m:15);
+  var eat=o.eat!=null?o.eat:(p.eat!=null?p.eat:(p.tags.indexOf('meat')>=0?45:(p.tags.indexOf('light')>=0?25:35)));
+  var cafe=null;
+  if(o.cafe==='none'){cafe=null;}
+  else if(o.cafe==='custom'&&o.cafeName){cafe={id:'custom',name:o.cafeName,leg:o.leg!=null?o.leg:5,back:o.back!=null?o.back:go};}
+  else if(o.cafe==null&&p.cafeName){cafe={id:'custom',name:p.cafeName,leg:p.cafeLeg!=null?p.cafeLeg:3,back:p.cafeBack!=null?p.cafeBack:go};}
+  else{var pick=null;cs.forEach(function(x){if(x.c.id===o.cafe)pick=x;});pick=pick||cs[0];
+    if(pick){var leg=pick.leg==null?3:walkMin(pick.leg);cafe={id:pick.c.id,name:pick.c.name,leg:o.leg!=null?o.leg:leg,back:o.back!=null?o.back:(a.w?walkMin(pick.c.d):driveMin(pick.c.d))};}}
+  var stay=o.stay!=null?o.stay:10;
+  var backNo=o.backNo!=null?o.backNo:go;
+  return {a:a,f:f,go:go,eat:eat,cafe:cafe,stay:stay,backNo:backNo,cafes:cs};
 }
-function select(id){S.sel=id;renderSheet();renderPlaces();document.getElementById('side').hidden=false;document.getElementById('sheet').scrollTop=0;}
+function flow(p){
+  var P=flowParts(p),T=myTimes(),t=toMin(T.start)||700,st=[];
+  st.push([t,P.a.w?'걸어서 출발 ('+P.go+'분)':'차로 출발 (약 '+P.go+'분, 주차 포함)']);t+=P.go;
+  st.push([t,p.name+' 도착 · 식사 '+P.eat+'분']);t+=P.eat;
+  if(P.cafe){st.push([t,P.cafe.name+'에서 커피 (이동 '+P.cafe.leg+'분 · '+P.stay+'분)']);t+=P.cafe.leg+P.stay;
+    st.push([t,'테이크아웃해서 복귀 ('+P.cafe.back+'분)']);t+=P.cafe.back;}
+  else{st.push([t,'커피 없이 복귀 ('+P.backNo+'분)']);t+=P.backNo;}
+  st.push([t,site().short+' 도착']);return {st:st,end:t,P:P,T:T};
+}
+function flowEditor(p,P,T){
+  function num(id,label,val){return el('label',{},[label,el('input',{id:id,type:'number',min:'0',max:'180',inputmode:'numeric',value:String(val)})]);}
+  var sel=el('select',{id:'fe-cafe'});
+  P.cafes.forEach(function(x){sel.appendChild(el('option',{value:x.c.id,text:x.c.name+(x.leg!=null?' (식당에서 '+walkMin(x.leg)+'분)':'')}));});
+  sel.appendChild(el('option',{value:'custom',text:'직접 입력'}));sel.appendChild(el('option',{value:'none',text:'커피 생략'}));
+  var cur=P.cafe?(P.cafe.id==='custom'?'custom':P.cafe.id):'none';sel.value=cur;
+  var cname=el('input',{id:'fe-cname',maxlength:'30',placeholder:'카페 이름',value:P.cafe&&P.cafe.id==='custom'?P.cafe.name:''});
+  var cbox=el('label',{},['카페 이름',cname]);
+  var legI=num('fe-leg','식당→카페 (분)',P.cafe?P.cafe.leg:3),stayI=num('fe-stay','카페에서 (분)',P.stay),backI=num('fe-back','카페→복귀 (분)',P.cafe?P.cafe.back:P.go);
+  function sync(){var v=sel.value;cbox.hidden=v!=='custom';legI.hidden=stayI.hidden=v==='none';backI.firstChild.textContent=v==='none'?'식당→복귀 (분)':'카페→복귀 (분)';}
+  sel.addEventListener('change',function(){var v=sel.value;P.cafes.forEach(function(x){if(x.c.id===v){legI.querySelector('input').value=x.leg==null?3:walkMin(x.leg);backI.querySelector('input').value=P.a.w?walkMin(x.c.d):driveMin(x.c.d);}});sync();});
+  var f=el('form',{class:'form',onsubmit:function(e){e.preventDefault();
+      function v(id){var n=parseInt(document.getElementById(id).value,10);return isFinite(n)&&n>=0?Math.min(n,180):null;}
+      var st=document.getElementById('fe-start').value,en=document.getElementById('fe-end').value;
+      if(toMin(st)!=null&&toMin(en)!=null)setMyTimes({start:st,end:en});
+      var c=sel.value,o={go:v('fe-go'),eat:v('fe-eat'),cafe:c,stay:v('fe-stay'),t:Date.now(),d:today()};
+      if(c==='custom'){o.cafeName=cname.value.replace(/[<>]/g,'').trim().slice(0,30);if(!o.cafeName){toast('카페 이름을 적어 주세요');return;}}
+      if(c==='none')o.backNo=v('fe-back');else{o.leg=v('fe-leg');o.back=v('fe-back');}
+      S.editFlow=false;setTimeFix(p,o);
+    }},[
+    el('div',{class:'two'},[el('label',{},['출발 시각 (내 기기)',el('input',{id:'fe-start',type:'time',value:T.start})]),el('label',{},['복귀 목표 (내 기기)',el('input',{id:'fe-end',type:'time',value:T.end})])]),
+    el('div',{class:'two'},[num('fe-go',P.a.w?'걸어가는 시간 (분)':'차로 가는 시간 (분)',P.go),num('fe-eat','식사 시간 (분)',P.eat)]),
+    el('label',{},['들를 카페',sel]),cbox,
+    el('div',{class:'two'},[legI,stayI]),backI,
+    el('div',{style:'font-size:.76rem;color:var(--muted)',text:'출발·복귀 시각은 이 기기에만, 구간별 시간은 모두에게 저장돼요.'}),
+    el('div',{style:'display:flex;gap:6px;flex-wrap:wrap'},[el('button',{class:'btn dark',type:'submit',text:'저장'}),
+      el('button',{class:'btn',type:'button',text:'취소',onclick:function(){S.editFlow=false;renderSheet();}}),
+      P.f?el('button',{class:'btn',type:'button',text:'원래 계산으로',onclick:function(){S.editFlow=false;setTimeFix(p,null);}}):null])]);
+  sync();return f;
+}
+function select(id){if(S.sel!==id)S.editFlow=false;S.sel=id;renderSheet();renderPlaces();document.getElementById('side').hidden=false;document.getElementById('sheet').scrollTop=0;}
 function closeSheet(){if(matchMedia('(max-width:959px)').matches)document.getElementById('side').hidden=true;}
 function renderSheet(){
   var sh=document.getElementById('sheet');sh.innerHTML='';
@@ -575,9 +638,12 @@ function renderSheet(){
   if(p.pub){var pb=PUB[p.pub];sh.appendChild(el('div',{class:'part'},[el('h4',{text:'공공기관 업무추진비 결제 기록'}),el('div',{style:'font-size:.86rem'},[el('b',{text:pb.t}),el('div',{style:'color:var(--muted)',text:pb.s}),el('a',{href:pb.u,target:'_blank',rel:'noopener',style:'color:var(--gold)',text:'출처 보기'})])]));}
   if(!dinner){
     var fl=flow(p),ol=el('ol',{class:'flow'});fl.st.forEach(function(s){ol.appendChild(el('li',{},[el('span',{class:'t',text:hm(s[0])}),el('span',{text:s[1]})]));});
-    var over=fl.end-780;
-    sh.appendChild(el('div',{class:'part'},[el('h4',{text:'식후 커피까지 · 11시 40분 출발 기준'}),ol,
-      el('div',{style:'margin-top:6px;font-size:.84rem;font-weight:600;color:'+(over>0?'var(--chili)':'var(--go)'),text:over>0?('1시를 '+over+'분 넘겨요. 커피는 '+site().short+' 근처에서'):('1시까지 '+(-over)+'분 여유')})]));
+    var endM=toMin(fl.T.end)||780,over=fl.end-endM,endL=hhmmLabel(fl.T.end);
+    var head=el('div',{style:'display:flex;justify-content:space-between;align-items:center;gap:8px'},[el('h4',{style:'margin:0',text:'식후 커피까지 · '+hhmmLabel(fl.T.start)+' 출발 기준'}),
+      el('button',{class:'btn',style:'padding:3px 10px;font-size:.76rem',onclick:function(){S.editFlow=!S.editFlow;renderSheet();},text:S.editFlow?'닫기':'시간 고치기'})]);
+    var fixNote=fl.P.f?el('div',{style:'margin-top:4px;font-size:.76rem;color:var(--muted)',text:'구간 시간은 '+nameOf(fl.P.f.uid)+' 님이 '+(fl.P.f.o.d||'').slice(5).replace('-','/')+'에 고친 값이에요'}):null;
+    sh.appendChild(el('div',{class:'part'},[head,S.editFlow?flowEditor(p,fl.P,fl.T):ol,S.editFlow?null:fixNote,
+      S.editFlow?null:el('div',{style:'margin-top:6px;font-size:.84rem;font-weight:600;color:'+(over>0?'var(--chili)':'var(--go)'),text:over>0?(endL+'를 '+over+'분 넘겨요. 커피는 '+site().short+' 근처에서'):(endL+'까지 '+(-over)+'분 여유')})]));
     var cl=el('div',{});cafesFor(p,3).forEach(function(o){cl.appendChild(el('div',{class:'cafe'},[el('span',{},[o.c.name,el('span',{style:'color:var(--muted)',text:' · '+o.c.kind})]),el('span',{text:(o.leg!=null?'식당에서 '+walkMin(o.leg)+'분 · ':'')+site().short+'까지 '+walkMin(o.c.d)+'분'})]));});
     if(cl.children.length)sh.appendChild(el('div',{class:'part'},[el('h4',{text:'복귀길 카페'}),cl]));
   } else {
@@ -591,6 +657,7 @@ function renderSheet(){
   sh.appendChild(el('div',{class:'part'},[el('h4',{text:'정보 바로잡기'}),el('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.84rem'},[
     el('button',{class:'btn',disabled:!(me&&canWrite)||null,onclick:function(){setGone(p,!mine);},text:mine?'신고 취소':'없어진 집이에요 (폐업·이전)'}),
     el('span',{style:'color:var(--muted)',text:gc?('지금까지 '+gc+'명이 신고해 목록에서 숨겨졌어요'):'신고하면 모두의 목록에서 숨겨져요'})])]));
+  if(p.custom&&p.by===me)sh.appendChild(el('button',{class:'btn',style:'margin-top:12px;margin-right:6px',text:'내가 추가한 이 집 정보 고치기',onclick:function(){editExtra(p);}}));
   if(p.custom&&p.by===me)sh.appendChild(el('button',{class:'btn',style:'margin-top:12px',text:'내가 추가한 이 집 삭제',onclick:function(e){var b=e.currentTarget;if(!b.dataset.c){b.dataset.c=1;b.textContent='한 번 더 누르면 삭제';return;}removeExtra(p.id);}}));
 }
 function reviewForm(p){
@@ -614,16 +681,29 @@ function reviewForm(p){
 /* ---- add place ---- */
 var at=document.getElementById('a-tag');MENUS.forEach(function(m){at.appendChild(el('option',{value:m.k,text:m.t}));});
 function dongFromText(t){var D=['도담동','나성동','어진동','보람동','대평동','새롬동','한솔동','아름동','종촌동','고운동','다정동','소담동','반곡동'];for(var i=0;i<D.length;i++)if(t.indexOf(D[i].slice(0,2))>=0)return D[i];return '';}
+function numVal(id,max){var n=parseInt(document.getElementById(id).value,10);return isFinite(n)&&n>=0?Math.min(n,max):null;}
+function resetAddForm(){var f=document.getElementById('addForm');f.reset();delete f.dataset.edit;document.getElementById('a-submit').textContent='추가';document.getElementById('a-cancel').hidden=true;document.getElementById('addSummary').textContent='목록에 없는 단골집 추가 (모두에게 보여요)';}
+function editExtra(p){var f=document.getElementById('addForm');f.dataset.edit=p.id;
+  var set=function(id,v){document.getElementById(id).value=v==null?'':v;};
+  set('a-name',p.name);set('a-tag',p.tags[0]);set('a-area',p.area===site().name?'':p.area);set('a-walk',p.walk);set('a-price',p.price||1);
+  set('a-eat',p.eat);set('a-cafe',p.cafeName||'');set('a-cleg',p.cafeLeg);set('a-cback',p.cafeBack);set('a-menu',p.menu);set('a-tel',p.tel);
+  document.getElementById('a-room').checked=!!p.room;
+  document.getElementById('a-submit').textContent='고친 내용 저장';document.getElementById('a-cancel').hidden=false;
+  document.getElementById('addSummary').textContent=p.name+' 정보 고치기';
+  var box=document.getElementById('addBox');box.open=true;closeSheet();box.scrollIntoView({behavior:'smooth',block:'start'});}
+document.getElementById('a-cancel').addEventListener('click',resetAddForm);
 document.getElementById('addForm').addEventListener('submit',function(e){e.preventDefault();
   if(!(me&&canWrite)){toast('집 추가는 편집 권한으로 초대받은 사람만 할 수 있어요');return;}
   var name=document.getElementById('a-name').value.trim();if(!name)return;
   var w=parseInt(document.getElementById('a-walk').value,10),tag=document.getElementById('a-tag').value,area=document.getElementById('a-area').value.trim(),room=document.getElementById('a-room').checked;
-  var id='x'+Date.now().toString(36);
-  var p={id:id,s:S.site,custom:1,by:me,name:name,tags:[tag],cat:MENU[tag].t,area:area||site().name,dong:isSejong()?dongFromText(area):'',walk:isFinite(w)&&w>0?w:null,
+  var editId=e.target.dataset.edit,old=editId?extra[editId]:null;
+  var id=editId||('x'+Date.now().toString(36));
+  var p={id:id,s:old?old.s:S.site,custom:1,by:old?old.by:me,name:name,tags:[tag],cat:MENU[tag].t,area:area||site().name,dong:isSejong()?dongFromText(area):'',walk:isFinite(w)&&w>0?w:null,
     price:+document.getElementById('a-price').value,menu:document.getElementById('a-menu').value.trim()||MENU[tag].t,tel:document.getElementById('a-tel').value.trim(),
+    eat:numVal('a-eat',180),cafeName:document.getElementById('a-cafe').value.replace(/[<>]/g,'').trim().slice(0,30)||null,cafeLeg:numVal('a-cleg',60),cafeBack:numVal('a-cback',90),
     rsv:room?'rec':'unk',room:room?1:0,grp:room?1:0,pub:null,note:'',closed:'',lunch:1,dinner:1,d:null,lat:null,lng:null,hrs:null};
-  extra[id]=p;renderAll();e.target.reset();toast(name+' 추가했어요');
-  writeExtra(id,p).catch(function(){toast('추가를 저장하지 못했어요');});
+  extra[id]=p;resetAddForm();renderAll();toast(name+(editId?' 정보를 고쳤어요':' 추가했어요'));
+  writeExtra(id,p).catch(function(){toast('저장하지 못했어요');});
 });
 
 document.querySelectorAll('.meal button').forEach(function(b){b.addEventListener('click',function(){S.meal=b.dataset.meal;S.lucky=null;S.menu=null;S.showAll=false;
@@ -641,8 +721,8 @@ function renderAll(){
 
 /* ---- storage ---- */
 var LKEY='menuboard.local';
-function loadLocal(){try{var o=JSON.parse(localStorage.getItem(LKEY)||'{}');me='local';canWrite=true;votes={local:o.vote||{}};reviews={local:{items:o.items||{},gone:o.gone||{}}};extra=o.extra||{};}catch(e){}}
-function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({vote:votes.local||{},items:(reviews.local||{}).items||{},gone:(reviews.local||{}).gone||{},extra:extra}));}catch(e){}return Promise.resolve();}
+function loadLocal(){try{var o=JSON.parse(localStorage.getItem(LKEY)||'{}');me='local';canWrite=true;votes={local:o.vote||{}};reviews={local:{items:o.items||{},gone:o.gone||{},tm:o.tm||{}}};extra=o.extra||{};}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({vote:votes.local||{},items:(reviews.local||{}).items||{},gone:(reviews.local||{}).gone||{},tm:(reviews.local||{}).tm||{},extra:extra}));}catch(e){}return Promise.resolve();}
 var writeVote=function(){return saveLocal();},writeReviews=function(){return saveLocal();},writeExtra=function(){return saveLocal();},
     removeExtra=function(id){delete extra[id];S.sel=null;closeSheet();renderAll();return saveLocal();};
 
