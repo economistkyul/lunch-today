@@ -18,7 +18,7 @@
 [hidden]{display:none!important}
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 img{max-width:100%}
-/* Layout: site tabs → meal toggle → vote board → menu tiles → place cards; detail is a bottom sheet on phones, a sticky side panel on desktop. */
+/* Layout: site tabs → meal toggle → recent reviews → menu tiles → place cards; detail is a bottom sheet on phones, a sticky side panel on desktop. */
 :root{
   --bg:#f1f4f3;
   --card:#ffffff;
@@ -242,7 +242,7 @@ footer a{color:var(--muted)}
   </div>
 
   <footer>
-    <p><b>이렇게 써요.</b> 처음 투표할 때 닉네임만 정하면 되고 가입은 없습니다. 휴대폰에서 ‘홈 화면에 추가’를 누르면 앱처럼 열 수 있어요. 위에서 근무지를 고르고, 메뉴 타일을 누른 뒤 가고 싶은 집에 ‘한 표’를 누르면 투표판에 이름과 함께 모입니다. 표가 모인 집에 전화하거나 네이버로 예약하고 ‘예약했어요’를 누르면 같이 가는 사람 모두에게 보입니다. 투표는 근무지·점심/저녁별로 따로 모이고, 날짜가 바뀌면 새로 시작합니다. 저녁은 룸·단체석·예약 언급과 메뉴, 평점을 합쳐 회식하기 좋은 순으로 보여 줍니다.</p>
+    <p><b>이렇게 써요.</b> 후기를 처음 남길 때 닉네임만 정하면 되고 가입은 없습니다. 휴대폰에서 ‘홈 화면에 추가’를 누르면 앱처럼 열 수 있어요. 위에서 근무지와 점심·저녁을 고르고, 메뉴 타일을 누르면 가까운 순(저녁은 회식하기 좋은 순)으로 집이 나옵니다. 마음에 드는 집은 ‘네이버 리뷰·예약’으로 바로 예약하거나 전화하고, 다녀온 뒤 별점과 한 줄 평을 남기면 맨 위 ‘최근 동료 후기’와 평점 순위에 반영돼요. 고르기 어려우면 ‘아무거나’를 눌러 보세요. 저녁은 룸·단체석·예약 언급과 메뉴, 평점을 합쳐 회식하기 좋은 순으로 보여 줍니다.</p>
     <p><b>데이터.</b> 위치·영업시간·전화·구글 평점은 Google 지도 장소 정보(2026년 10월 조회)입니다. 세종 89곳은 메뉴·예약 메모를 후기에서 직접 정리했고, 나머지는 상호와 업종으로 메뉴를 자동 분류했습니다. Google에 영문으로만 등록된 일부 식당은 한글 상호로 옮겨 적었습니다. 룸·단체·예약 표시는 후기에 그런 언급이 있다는 뜻이니 예약 전에 확인하세요. 가격대는 추정치입니다. 네이버 평점·리뷰·예약은 앱 밖으로 가져올 수 없어 식당마다 네이버 지도로 연결합니다. 도보 시간은 기점에서의 직선거리×1.3을 분속 70m로 나눈 값입니다. 세종의 ‘공공기관 단골' 표시는 지자체·기관장 업무추진비 공개자료에 자주 나온 집으로, <a href="https://gyyi0718.github.io/" target="_blank" rel="noopener">세금맛집(2025 지자체 업무추진비 집계)</a>, <a href="https://www.sjsori.com/news/articleView.html?idxno=53794" target="_blank" rel="noopener">세종의소리</a>, <a href="http://www.mediaboot.co.kr/news/articleView.html?idxno=12395" target="_blank" rel="noopener">미디어붓</a>, <a href="https://m.go.seoul.co.kr/news/2017/02/06/20170206037005" target="_blank" rel="noopener">서울신문 公슐랭</a> 기준입니다. ‘영업 확인 필요'는 Google에 영업시간·전화가 없고 후기도 적은 곳입니다. 없어진 집을 발견하면 상세 화면에서 ‘없어진 집이에요'를 눌러 주세요. 신고된 집은 모두의 목록에서 숨겨집니다.</p>
   </footer>
 </div>
@@ -348,19 +348,6 @@ function curRange(){var k=S.site+':'+S.meal,rd=rangeDef();var v=S.ranges[k];if(!
 function rangeLabel(){var v=curRange();var f=rangeDef().list.filter(function(x){return x[0]===v;})[0];return f?f[1]:'';}
 function vkey(){return S.site+':'+S.meal;}
 
-/* ---- votes ---- */
-function voteOf(doc){if(!doc)return null;var v=doc[vkey()];if(!v&&S.site==='sejong')v=doc[S.meal];return v;}
-function todayVotes(){var t=today(),out=[];Object.keys(votes).forEach(function(uid){var v=voteOf(votes[uid]);if(v&&v.date===t)out.push({uid:uid,v:v});});return out;}
-function myVote(){var v=me&&voteOf(votes[me]);return v&&v.date===today()?v:null;}
-function setMyVote(v){
-  if(needName(function(){setMyVote(v);}))return;
-  var doc=Object.assign({},votes[me]||{});doc[vkey()]=v;if(S.site==='sejong')delete doc[S.meal];votes[me]=doc;renderAll();
-  writeVote(doc).catch(function(){toast('투표를 저장하지 못했어요. 다시 눌러 주세요');});
-}
-function votePlace(p){var mv=myVote();if(mv&&mv.place===p.id){setMyVote(null);toast('표를 거뒀어요');return;}
-  var tag=S.menu&&p.tags.indexOf(S.menu)>=0?S.menu:p.tags[0];setMyVote({date:today(),menu:tag,place:p.id,booked:false});toast(p.name+'에 한 표');}
-function markBooked(pid,on){var mv=myVote();if(!mv||mv.place!==pid){setMyVote({date:today(),menu:byId(pid).tags[0],place:pid,booked:on});}else{setMyVote(Object.assign({},mv,{booked:on}));}toast(on?'예약했다고 알렸어요':'예약 표시를 지웠어요');}
-
 /* ---- reviews ---- */
 function placeReviews(pid){var out=[];Object.keys(reviews).forEach(function(uid){var it=reviews[uid]&&reviews[uid].items&&reviews[uid].items[pid];if(it&&it.s)out.push({uid:uid,r:it});});return out.sort(function(a,b){return (b.r.d||'').localeCompare(a.r.d||'');});}
 function goneCount(pid){var n=0;Object.keys(reviews).forEach(function(uid){var g=reviews[uid]&&reviews[uid].gone;if(g&&g[pid])n++;});return n;}
@@ -391,39 +378,25 @@ function switchSite(k){if(S.site===k)return;S.site=k;S.menu=null;S.sel=null;S.lu
   try{history.replaceState(null,'','#'+k);}catch(e){try{location.hash=k;}catch(e2){}}
   closeSheet();renderAll();window.scrollTo({top:0});}
 
-/* ---- board ---- */
+/* ---- recent reviews (top of page) ---- */
 function renderBoard(){
   var b=document.getElementById('board');b.innerHTML='';
-  var tv=todayVotes();
-  b.appendChild(el('div',{class:'board-head'},[el('h2',{text:'오늘 '+(S.meal==='lunch'?'점심':'저녁')+' 투표 · '+site().name}),el('span',{class:'who',text:tv.length?(tv.length+'명 참여'):''})]));
-  if(!tv.length)b.appendChild(el('p',{class:'empty',text:S.meal==='lunch'?'아직 아무도 고르지 않았어요. 아래에서 메뉴를 고르고 가고 싶은 집에 한 표를 던지세요.':'회식 장소를 정하는 중이라면 후보에 한 표씩 던져 보세요. 룸·단체석이 언급된 곳이 위에 나와요.'}));
-  var groups={};tv.forEach(function(x){var key=x.v.place?('p:'+x.v.place):('m:'+x.v.menu);(groups[key]=groups[key]||[]).push(x);});
-  var keys=Object.keys(groups).sort(function(a,c){return groups[c].length-groups[a].length||(a[0]==='p'?-1:1);});
-  var max=keys.length?groups[keys[0]].length:1,tally=el('div',{class:'tally'});
-  keys.forEach(function(key){
-    var arr=groups[key],isP=key[0]==='p',id=key.slice(2),p=isP?byId(id):null;
-    if(isP&&!p)return;
-    var label=isP?p.name:(MENU[id]?MENU[id].t:'메뉴');
-    var sub=isP?((MENU[arr[0].v.menu]?MENU[arr[0].v.menu].t:'')+' · '+(access(p).w?'도보 '+access(p).m+'분':'차량')):'집은 아직';
-    var booked=arr.filter(function(x){return x.v.booked;});
-    var row=el('div',{class:'trow'},[el('div',{class:'tn'},[label,el('small',{text:sub})]),el('div',{class:'cnt'},[String(arr.length),el('small',{text:'명'})]),
-      el('div',{class:'bar'},[el('i',{style:'width:'+Math.round(arr.length/max*100)+'%'})]),
-      el('div',{class:'names'},arr.map(function(x){return el('span',{class:'nm'+(x.uid===me?' me':''),text:nameOf(x.uid)});}))]);
-    var acts=el('div',{class:'acts'});
-    if(isP){
-      if(booked.length)acts.appendChild(el('span',{class:'booked',text:'✓ '+booked.map(function(x){return nameOf(x.uid);}).join(', ')+' 예약 완료'}));
-      if(p.tel)acts.appendChild(el('button',{class:'btn',onclick:function(){copy(p.tel);},'aria-label':'전화번호 복사'},[el('span',{class:'tel',text:p.tel})]));
-      acts.appendChild(el('a',{class:'btn naver',href:naverUrl(p),target:'_blank',rel:'noopener',text:'네이버 예약'}));
-      var iB=booked.some(function(x){return x.uid===me;});
-      acts.appendChild(el('button',{class:'btn',onclick:function(){markBooked(p.id,!iB);},text:iB?'예약 표시 취소':'예약했어요'}));
-      acts.appendChild(el('button',{class:'btn',onclick:function(){select(p.id);},text:'자세히'}));
-    }
-    row.appendChild(acts);tally.appendChild(row);
+  var rv=[];places().forEach(function(p){placeReviews(p.id).forEach(function(x){rv.push({p:p,uid:x.uid,r:x.r});});});
+  rv.sort(function(a,c){return (c.r.d||'').localeCompare(a.r.d||'');});
+  b.appendChild(el('div',{class:'board-head'},[el('h2',{text:'최근 동료 후기 · '+site().name}),el('span',{class:'who',text:rv.length?('후기 '+rv.length+'건'):''})]));
+  if(!rv.length)b.appendChild(el('p',{class:'empty',text:'아직 후기가 없어요. 다녀온 집을 눌러 별점과 한 줄 평을 남기면 여기 모여요.'}));
+  var list=el('div',{class:'tally'});
+  rv.slice(0,4).forEach(function(x){
+    var a=access(x.p);
+    list.appendChild(el('div',{class:'trow'},[
+      el('div',{class:'tn'},[el('button',{class:'pn',style:'font-size:inherit',onclick:function(){select(x.p.id);},text:x.p.name}),el('small',{text:(MENU[x.p.tags[0]]?MENU[x.p.tags[0]].t:'')+' · '+(a.w?'도보 '+a.m+'분':'차량')})]),
+      el('div',{class:'cnt',style:'font-size:.95rem',text:'★★★★★'.slice(0,x.r.s)+'☆☆☆☆☆'.slice(0,5-x.r.s)}),
+      el('div',{class:'acts',style:'color:var(--muted)'},[(x.r.t?'“'+x.r.t+'” ':'')+'— '+nameOf(x.uid)+(x.r.d?' · '+x.r.d.slice(5).replace('-','/'):'')])]));
   });
-  b.appendChild(tally);
+  b.appendChild(list);
   if(!shared)b.appendChild(el('div',{class:'banner',text:offlineMsg}));
   b.appendChild(el('div',{style:'margin-top:8px;font-size:.78rem;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap'},[
-    myName?el('span',{text:myName+' 님으로 참여 중'}):el('span',{text:'처음 투표할 때 닉네임만 정하면 돼요. 가입은 없어요.'}),
+    myName?el('span',{text:myName+' 님으로 참여 중'}):el('span',{text:'후기를 처음 남길 때 닉네임만 정하면 돼요. 가입은 없어요.'}),
     myName?el('button',{class:'btn',style:'padding:3px 10px;font-size:.76rem',onclick:function(){openNameSheet(null);},text:'닉네임 바꾸기'}):null]));
 }
 
@@ -452,7 +425,6 @@ function renderTiles(){
   var box=document.getElementById('tiles');box.innerHTML='';
   var dinner=S.meal==='dinner';
   document.getElementById('tilesTitle').textContent=dinner?'회식 메뉴부터 골라요':'메뉴부터 골라요';
-  var tv=todayVotes(),vc={};tv.forEach(function(x){vc[x.v.menu]=(vc[x.v.menu]||0)+1;});
   var order=dinner?DINNER_ORDER.map(function(k){return MENU[k];}):MENUS;
   var pool=places().filter(function(p){return baseOk(p)&&inRange(p)&&!closedToday(p)&&!goneCount(p.id);});
   order.forEach(function(m){
@@ -462,7 +434,7 @@ function renderTiles(){
     var tc=!list.length?'이 범위엔 없음':(dinner?(list.length+'곳'+(hs?' · 회식 추천 '+hs:'')):(list.length+'곳 · 가장 가까운 '+near+'분'));
     box.appendChild(el('button',{class:'tile','aria-pressed':String(S.menu===m.k),onclick:function(){pickMenu(m.k);}},[
       el('span',{class:'tt',text:dinner&&DTITLE[m.k]?DTITLE[m.k]:m.t}),el('span',{class:'td',text:dinner&&DDESC[m.k]?DDESC[m.k]:m.d}),
-      el('span',{class:'tc'+(list.length?'':' none'),text:tc}),vc[m.k]?el('span',{class:'vb',text:vc[m.k]+'표'}):null]));
+      el('span',{class:'tc'+(list.length?'':' none'),text:tc})]));
   });
   box.appendChild(el('button',{class:'tile any',onclick:randomPick},[el('span',{class:'tt',text:'아무거나'}),
     el('span',{class:'td',text:dinner?'회식하기 좋은 곳 중에서 하나 뽑아요':'고르기 지쳤을 때, 메뉴와 집을 하나 뽑아요'}),el('span',{class:'tc',text:'후기 평점 반영'})]));
@@ -542,10 +514,9 @@ function renderPlaces(){
   document.getElementById('placesCount').textContent=list.length+'곳 · '+rangeLabel()+' · '+(dinner?'회식하기 좋은 순':'가까운 순');
   var box=document.getElementById('cards');box.innerHTML='';
   if(!list.length){box.appendChild(el('div',{class:'more',text:'조건에 맞는 집이 없어요. 범위를 넓히거나 조건 칩을 꺼 보세요.'}));return;}
-  var mv=myVote(),tv=todayVotes(),limit=S.showAll?list.length:(S.menu?30:15);
+  var limit=S.showAll?list.length:(S.menu?30:15);
   list.slice(0,limit).forEach(function(p){
-    var a=access(p),gp=p.g?('구글 ★'+p.g.toFixed(1)+(p.gn?' · '+p.gn:'')):'',voted=mv&&mv.place===p.id;
-    var nv=tv.filter(function(x){return x.v.place===p.id;}).length;
+    var a=access(p),gp=p.g?('구글 ★'+p.g.toFixed(1)+(p.gn?' · '+p.gn:'')):'';
     var where=dinner&&isSejong()&&p.dong?p.dong:p.area;
     box.appendChild(el('div',{class:'card'+(S.sel===p.id?' sel':'')+(S.lucky===p.id?' sel lucky':''),id:'card-'+p.id},[
       el('button',{class:'pn',onclick:function(){select(p.id);},text:p.name}),
@@ -553,7 +524,6 @@ function renderPlaces(){
       el('div',{class:'ps'},[el('em',{text:p.menu}),' · '+PRICE[p.price]+' · '+where+(gp?' · '+gp:'')]),
       el('div',{class:'pills'},pillsFor(p)),
       el('div',{class:'row'},[
-        el('button',{class:'btn vote','aria-pressed':String(!!voted),onclick:function(){votePlace(p);},text:voted?'내 표 ✓'+(nv>1?' · '+nv+'명':''):('한 표'+(nv?' · '+nv+'명':''))}),
         el('a',{class:'btn naver',href:naverUrl(p),target:'_blank',rel:'noopener',text:'네이버 리뷰·예약'}),
         p.tel?el('button',{class:'btn',onclick:function(){copy(p.tel);},'aria-label':p.name+' 전화번호 복사'},[el('span',{class:'tel',text:p.tel})]):null,
         el('button',{class:'btn',onclick:function(){select(p.id);},text:dinner?'자세히·후기':'커피·후기'})])
@@ -605,9 +575,7 @@ function renderSheet(){
   if(p.note)f('메모',p.note);
   if(p.chk)f('확인','Google에 영업시간·전화가 없고 후기도 적어요. 방문 전 네이버에서 영업 여부를 확인하세요.');
   sh.appendChild(dl);
-  var mv=myVote(),voted=mv&&mv.place===p.id;
   sh.appendChild(el('div',{style:'display:flex;flex-wrap:wrap;gap:6px'},[
-    el('button',{class:'btn vote','aria-pressed':String(!!voted),onclick:function(){votePlace(p);renderSheet();},text:voted?'내 표 ✓':'여기 한 표'}),
     el('a',{class:'btn naver',href:naverUrl(p),target:'_blank',rel:'noopener',text:'네이버 리뷰·예약'}),
     p.tel?el('button',{class:'btn',onclick:function(){copy(p.tel);},text:'전화번호 복사'}):null,
     p.tel?el('a',{class:'btn',href:'tel:'+p.tel.replace(/-/g,''),text:'전화'}):null,
@@ -734,11 +702,12 @@ function openNameSheet(after){
   var form=el('form',{class:'sheet',style:'width:100%;max-width:420px;display:grid;gap:10px',onsubmit:function(e){e.preventDefault();
       var v=inp.value.replace(/[<>]/g,'').trim().slice(0,12);
       if(v.length<2){err.textContent='두 글자 이상 적어 주세요.';inp.focus();return;}
-      myName=v;lsSet(NAMEKEY,v);close();renderAll();
-      if(shared)post({op:'hello'}).catch(function(){});
-      toast(v+' 님, 반가워요');if(after)after();
+      myName=v;lsSet(NAMEKEY,v);close();
+      // 하려던 일(후기 저장 등)을 화면이 다시 그려지기 전에 이어서 처리
+      if(after)after();else if(shared)post({op:'hello'}).catch(function(){});
+      renderAll();toast(v+' 님, 반가워요');
     }},[el('h3',{text:'닉네임을 정해 주세요'}),
-    el('p',{style:'margin:0;color:var(--muted);font-size:.86rem',text:'투표판과 후기에 이 이름으로 보여요. 가입은 없고, 이름 말고는 아무것도 저장하지 않아요. 실명 대신 별명도 괜찮아요.'}),
+    el('p',{style:'margin:0;color:var(--muted);font-size:.86rem',text:'후기와 직접 추가한 집에 이 이름으로 보여요. 가입은 없고, 이름 말고는 아무것도 저장하지 않아요. 실명 대신 별명도 괜찮아요.'}),
     inp,err,
     el('div',{style:'display:flex;gap:8px;justify-content:flex-end'},[el('button',{class:'btn',type:'button',onclick:close,text:'나중에'}),el('button',{class:'btn dark',type:'submit',text:'시작하기'})])]);
   var box=el('div',{class:'namebox',style:'position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px;background:color-mix(in srgb,var(--ink) 45%,transparent)',onclick:function(e){if(e.target===box)close();}},[form]);

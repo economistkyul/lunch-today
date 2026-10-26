@@ -1,6 +1,6 @@
 """template3.html(아티팩트용)을 Vercel 배포용 index.html로 바꿉니다.
 - Claude 아티팩트 저장소(window.claude) 대신 /api/state 서버 함수를 씁니다.
-- 처음 투표·후기·신고할 때 닉네임을 받습니다(가입 없음).
+- 처음 후기·신고·집 추가할 때 닉네임을 받습니다(가입 없음).
 - 홈 화면 추가(PWA)용 매니페스트·아이콘·서비스워커를 연결합니다.
 사용법: python3 tools/build_index.py <template3.html> <data.json> <out index.html>
 """
@@ -20,8 +20,6 @@ def rep(a, b, count=1):
 
 
 # ---- write guards: nickname instead of Claude sign-in / edit rights
-rep("  if(!me){toast('투표는 Claude에 로그인해야 할 수 있어요');return;}\n  if(!canWrite){toast('보기 전용으로 열려 있어 투표할 수 없어요');return;}",
-    "  if(needName(function(){setMyVote(v);}))return;")
 rep("function setGone(p,on){if(!(me&&canWrite)){toast('신고는 편집 권한으로 초대받은 사람만 할 수 있어요');return;}",
     "function setGone(p,on){if(needName(function(){setGone(p,on);}))return;")
 rep("      if(dis){toast('후기는 편집 권한으로 초대받은 사람만 남길 수 있어요');return;}",
@@ -30,19 +28,18 @@ rep("  var dis=!(me&&canWrite);", "  var dis=false;")
 rep("  if(!(me&&canWrite)){toast('집 추가는 편집 권한으로 초대받은 사람만 할 수 있어요');return;}",
     "  if(needName(function(){var f=document.getElementById('addForm');f.requestSubmit?f.requestSubmit():f.dispatchEvent(new Event('submit',{cancelable:true}));}))return;")
 rep("disabled:!(me&&canWrite)||null,onclick:function(){setGone(p,!mine);}", "onclick:function(){setGone(p,!mine);}")
-rep("acts.appendChild(el('button',{class:'btn',disabled:!canWrite||null,onclick:function(){markBooked(p.id,!iB);}", "acts.appendChild(el('button',{class:'btn',onclick:function(){markBooked(p.id,!iB);}")
 
 # ---- board banners + who am I
 board_old = re.search(r"  if\(!shared\)b\.appendChild\(el\('div',\{class:'banner'.*?\n  else if\(!canWrite\)b\.appendChild\(.*?\n", h, re.S).group(0)
 h = h.replace(board_old,
     "  if(!shared)b.appendChild(el('div',{class:'banner',text:offlineMsg}));\n"
     "  b.appendChild(el('div',{style:'margin-top:8px;font-size:.78rem;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap'},[\n"
-    "    myName?el('span',{text:myName+' 님으로 참여 중'}):el('span',{text:'처음 투표할 때 닉네임만 정하면 돼요. 가입은 없어요.'}),\n"
+    "    myName?el('span',{text:myName+' 님으로 참여 중'}):el('span',{text:'후기를 처음 남길 때 닉네임만 정하면 돼요. 가입은 없어요.'}),\n"
     "    myName?el('button',{class:'btn',style:'padding:3px 10px;font-size:.76rem',onclick:function(){openNameSheet(null);},text:'닉네임 바꾸기'}):null]));\n")
 
 # ---- footer copy
-rep("<p><b>이렇게 써요.</b> 위에서 근무지를 고르고,",
-    "<p><b>이렇게 써요.</b> 처음 투표할 때 닉네임만 정하면 되고 가입은 없습니다. 휴대폰에서 ‘홈 화면에 추가’를 누르면 앱처럼 열 수 있어요. 위에서 근무지를 고르고,")
+rep("<p><b>이렇게 써요.</b> 위에서 근무지와",
+    "<p><b>이렇게 써요.</b> 후기를 처음 남길 때 닉네임만 정하면 되고 가입은 없습니다. 휴대폰에서 ‘홈 화면에 추가’를 누르면 앱처럼 열 수 있어요. 위에서 근무지와")
 
 # ---- replace storage section
 start = h.index('/* ---- storage ---- */')
@@ -92,11 +89,12 @@ function openNameSheet(after){
   var form=el('form',{class:'sheet',style:'width:100%;max-width:420px;display:grid;gap:10px',onsubmit:function(e){e.preventDefault();
       var v=inp.value.replace(/[<>]/g,'').trim().slice(0,12);
       if(v.length<2){err.textContent='두 글자 이상 적어 주세요.';inp.focus();return;}
-      myName=v;lsSet(NAMEKEY,v);close();renderAll();
-      if(shared)post({op:'hello'}).catch(function(){});
-      toast(v+' 님, 반가워요');if(after)after();
+      myName=v;lsSet(NAMEKEY,v);close();
+      // 하려던 일(후기 저장 등)을 화면이 다시 그려지기 전에 이어서 처리
+      if(after)after();else if(shared)post({op:'hello'}).catch(function(){});
+      renderAll();toast(v+' 님, 반가워요');
     }},[el('h3',{text:'닉네임을 정해 주세요'}),
-    el('p',{style:'margin:0;color:var(--muted);font-size:.86rem',text:'투표판과 후기에 이 이름으로 보여요. 가입은 없고, 이름 말고는 아무것도 저장하지 않아요. 실명 대신 별명도 괜찮아요.'}),
+    el('p',{style:'margin:0;color:var(--muted);font-size:.86rem',text:'후기와 직접 추가한 집에 이 이름으로 보여요. 가입은 없고, 이름 말고는 아무것도 저장하지 않아요. 실명 대신 별명도 괜찮아요.'}),
     inp,err,
     el('div',{style:'display:flex;gap:8px;justify-content:flex-end'},[el('button',{class:'btn',type:'button',onclick:close,text:'나중에'}),el('button',{class:'btn dark',type:'submit',text:'시작하기'})])]);
   var box=el('div',{class:'namebox',style:'position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px;background:color-mix(in srgb,var(--ink) 45%,transparent)',onclick:function(e){if(e.target===box)close();}},[form]);
