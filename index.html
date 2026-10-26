@@ -760,6 +760,10 @@ if('serviceWorker' in navigator&&location.protocol==='https:'){window.addEventLi
   var isKakao=/KAKAOTALK/i.test(ua), isInApp=isKakao||/NAVER\(inapp|Line\/|BAND\/|Instagram|FBAN|FBAV|DaumApps|everytimeApp|; wv\)/i.test(ua);
   var isIOS=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
   var isAndroid=/Android/i.test(ua), isMobile=isIOS||isAndroid;
+  var isSamsung=/SamsungBrowser/i.test(ua);
+  // 안드로이드에서는 크롬으로 설치해야 Play 프로텍트 차단이 안 뜹니다 (삼성 인터넷·앱 안 브라우저는 차단될 수 있음)
+  var isRealChrome=isAndroid&&/Chrome\/\d/.test(ua)&&!/SamsungBrowser|EdgA|OPR|Whale|NAVER|KAKAOTALK|Firefox|YaBrowser|DuckDuckGo|; wv\)/i.test(ua)&&!isInApp;
+  var chromeIntent='intent://'+location.host+location.pathname+location.search+'#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url='+encodeURIComponent(location.origin+location.pathname)+';end';
   var deferred=null, DKEY='menuboard.installHide';
   function hidden(){var t=+(lsGet(DKEY)||0);return t&&Date.now()-t<14*864e5;}
   function bar(msg,btns){
@@ -769,7 +773,10 @@ if('serviceWorker' in navigator&&location.protocol==='https:'){window.addEventLi
     var w=document.querySelector('.wrap');w.insertBefore(b,w.firstChild);
   }
   function guide(){
-    if(isKakao){
+    if(isAndroid&&!isRealChrome){
+      bar([el('b',{text:'갤럭시는 크롬에서 설치해 주세요. '}),(isSamsung?'삼성 인터넷으로 설치하면 Play 프로텍트가 ‘안전하지 않은 앱’으로 막을 수 있어요. ':isInApp?'앱 안의 브라우저에서는 설치가 안 돼요. ':'')+'버튼을 눌러 크롬으로 연 뒤 ‘홈 화면에 추가’를 누르면 돼요.'],
+        [el('a',{class:'btn dark',href:chromeIntent,text:'크롬으로 열기'})]);
+    }else if(isKakao){
       bar([el('b',{text:'카카오톡 안에서는 앱 설치가 안 돼요. '}),'‘다른 브라우저로 열기’를 눌러 크롬·사파리에서 연 뒤 홈 화면에 추가해 주세요.'],
         [el('a',{class:'btn dark',href:'kakaotalk://web/openExternal?url='+encodeURIComponent(location.href),text:'다른 브라우저로 열기'})]);
     }else if(isInApp){
@@ -784,7 +791,7 @@ if('serviceWorker' in navigator&&location.protocol==='https:'){window.addEventLi
     }
   }
   window.showInstallGuide=function(){lsSet(DKEY,'0');if(standalone){toast('이미 홈 화면 앱으로 쓰고 있어요');return;}if(!isMobile&&!deferred){location.href='/install';return;}guide();window.scrollTo({top:0,behavior:'smooth'});};
-  window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e;if(!standalone&&!hidden())guide();});
+  window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();if(isAndroid&&!isRealChrome)return;deferred=e;if(!standalone&&!hidden())guide();});
   window.addEventListener('appinstalled',function(){var x=document.getElementById('installBar');if(x)x.remove();});
   if(!standalone&&isMobile&&!hidden())setTimeout(function(){if(!document.getElementById('installBar'))guide();},1200);
   var f=document.querySelector('footer');

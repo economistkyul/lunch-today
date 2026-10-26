@@ -68,17 +68,17 @@ li{margin:4px 0}
     <div class="card">
       <h2>갤럭시·안드로이드</h2>
       <ol>
-        <li><b>Chrome</b>이나 <b>삼성 인터넷</b>으로 주소를 엽니다.</li>
+        <li>꼭 <b>Chrome(크롬)</b>으로 주소를 엽니다. 삼성 인터넷으로 설치하면 Play 프로텍트가 ‘안전하지 않은 앱 차단됨’으로 막을 수 있어요.</li>
         <li>화면 위 안내의 <span class="k">홈 화면에 추가</span>를 누르거나</li>
-        <li>메뉴 <span class="k">⋮</span>(삼성 인터넷은 <span class="k">≡</span>) → <span class="k">홈 화면에 추가</span> / <span class="k">앱 설치</span></li>
+        <li>크롬 메뉴 <span class="k">⋮</span> → <span class="k">홈 화면에 추가</span> → <span class="k">설치</span></li>
       </ol>
     </div>
     <div class="card">
       <h2>카카오톡으로 받았다면</h2>
       <ol>
         <li>카카오톡 안에서는 설치가 안 돼요.</li>
-        <li>오른쪽 아래(또는 위) <span class="k">⋯</span> → <span class="k">다른 브라우저로 열기</span></li>
-        <li>열린 Safari·Chrome에서 위 방법대로 추가합니다.</li>
+        <li>갤럭시: 화면 위 <span class="k">크롬으로 열기</span> 버튼을 누릅니다. (‘다른 브라우저로 열기’는 삼성 인터넷으로 열릴 수 있어요.)</li>
+        <li>아이폰: <span class="k">⋯</span> → <span class="k">다른 브라우저로 열기</span> → Safari에서 위 방법대로 추가합니다.</li>
       </ol>
     </div>
   </div>
@@ -97,12 +97,17 @@ li{margin:4px 0}
     if(navigator.clipboard)navigator.clipboard.writeText(home).then(ok,function(){prompt('주소를 복사하세요',home);});else prompt('주소를 복사하세요',home);
   };
   var ua=navigator.userAgent||'',hl=document.getElementById('hl');
-  if(/KAKAOTALK/i.test(ua)){
+  var isAndroid=/Android/i.test(ua);
+  var isRealChrome=isAndroid&&/Chrome\/\d/.test(ua)&&!/SamsungBrowser|EdgA|OPR|Whale|NAVER|KAKAOTALK|Firefox|YaBrowser|DuckDuckGo|; wv\)|Line\/|BAND\/|Instagram|FBAN|FBAV|DaumApps/i.test(ua);
+  if(isAndroid&&!isRealChrome){
+    hl.hidden=false;hl.innerHTML='<b>갤럭시는 크롬에서 설치해 주세요.</b> 지금 브라우저로 설치하면 Play 프로텍트가 막을 수 있어요. ';
+    var c=document.createElement('a');c.className='btn dark';c.href='intent://'+location.host+'/#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url='+encodeURIComponent(home)+';end';c.textContent='크롬으로 열기';hl.appendChild(c);
+  }else if(/KAKAOTALK/i.test(ua)){
     hl.hidden=false;hl.innerHTML='<b>지금 카카오톡 안에서 보고 계세요.</b> 설치하려면 브라우저로 열어 주세요. ';
     var a=document.createElement('a');a.className='btn dark';a.href='kakaotalk://web/openExternal?url='+encodeURIComponent(home);a.textContent='다른 브라우저로 열기';hl.appendChild(a);
   }
   var deferred=null,btn=document.getElementById('installBtn');
-  window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e;btn.hidden=false;});
+  window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();if(isAndroid&&!isRealChrome)return;deferred=e;btn.hidden=false;});
   btn.onclick=function(){if(!deferred)return;deferred.prompt();deferred=null;btn.hidden=true;};
   if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('/sw.js').catch(function(){});
 })();
