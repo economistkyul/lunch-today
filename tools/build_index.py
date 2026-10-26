@@ -106,6 +106,7 @@ function openNameSheet(after){
 loadLocal();renderAll();
 document.getElementById('side').hidden=matchMedia('(max-width:959px)').matches;
 pull().catch(function(){shared=false;renderBoard();});
+try{fetch('/api/stats',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({vid:ident.uid,site:S.site})}).catch(function(){});}catch(e){}
 setInterval(function(){if(document.visibilityState==='visible')pull().catch(function(){});},20000);
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')pull().catch(function(){});});
 if('serviceWorker' in navigator&&location.protocol==='https:'){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}

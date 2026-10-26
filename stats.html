@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>이용 현황 · 오늘 뭐 먹지</title>
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+:root{--bg:#faf7f2;--card:#fff;--ink:#231f1a;--muted:#7a7066;--line:#e8e1d7;--accent:#d4451a;--accent2:#e9a23b;--soft:#f3ece2}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17140f;--card:#211d17;--ink:#f3ede4;--muted:#a59a8c;--line:#3a332a;--accent:#f06a3b;--accent2:#f1b453;--soft:#2a251e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.35rem;margin:0 0 2px}
+.sub{color:var(--muted);font-size:.85rem;margin:0 0 18px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:22px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.tile b{display:block;font-size:1.6rem;font-variant-numeric:tabular-nums;line-height:1.2}
+.tile span{color:var(--muted);font-size:.8rem}
+h2{font-size:1rem;margin:22px 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;overflow:hidden}
+.chart{display:flex;align-items:flex-end;gap:3px;height:150px;padding-top:8px}
+.bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;min-width:0;height:100%}
+.bar i{display:block;width:100%;background:var(--accent);border-radius:3px 3px 0 0}
+.bar i.act{background:var(--accent2)}
+.bar small{font-size:.62rem;color:var(--muted);margin-top:3px;white-space:nowrap}
+.legend{display:flex;gap:14px;font-size:.78rem;color:var(--muted);margin-top:8px}
+.legend em{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:.85rem;font-variant-numeric:tabular-nums}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600;font-size:.78rem}
+.scroll{overflow-x:auto}
+.note{color:var(--muted);font-size:.8rem;margin-top:14px}
+.err{background:var(--soft);border-radius:12px;padding:14px;color:var(--ink)}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>오늘 뭐 먹지 · 이용 현황</h1>
+  <p class="sub" id="sub">불러오는 중…</p>
+  <div id="root"></div>
+  <p class="note">방문자는 기기(브라우저) 기준이에요. 같은 사람이 휴대폰과 PC로 열면 2명으로 셉니다. 이름·후기 내용은 이 화면에 나오지 않아요. <a href="/">앱으로 돌아가기</a></p>
+</div>
+<script>
+var SITE={sejong:'세종',banpo:'반포',yeouido:'여의도',seoul:'서울역',other:'기타'};
+var OP={vote:'투표',reviews:'후기·신고',extra:'집 추가',extra_del:'집 삭제',hello:'닉네임 등록'};
+function el(t,a,c){var e=document.createElement(t);for(var k in (a||{}))if(k==='text')e.textContent=a[k];else e.setAttribute(k,a[k]);(c||[]).forEach(function(x){e.appendChild(typeof x==='string'?document.createTextNode(x):x);});return e;}
+function sum(o){var s=0;for(var k in o)s+=o[k];return s;}
+fetch('/api/stats',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+  var root=document.getElementById('root');
+  if(!j.ok){document.getElementById('sub').textContent='';root.appendChild(el('div',{class:'err',text:j.error==='storage_not_configured'?'아직 공용 저장소(Upstash Redis)가 연결되지 않았어요. Vercel의 Storage 탭에서 연결한 뒤 다시 배포하면 집계가 시작돼요.':'집계를 불러오지 못했어요: '+j.error}));return;}
+  document.getElementById('sub').textContent=j.now+' 기준 · 집계는 이 기능을 넣은 뒤부터 쌓여요';
+  var t=j.total,d=j.daily,today=d[d.length-1];
+  var last7=d.slice(-7),wkVis=Math.max.apply(null,last7.map(function(x){return x.visitors;}));
+  var tiles=[[today.visitors,'오늘 방문자'],[today.active,'오늘 투표·후기 남긴 사람'],[t.visitors,'누적 방문 기기'],[t.nicknames,'닉네임 정한 사람'],[t.voters,'투표한 사람'],[t.reviews,'후기 수 ('+t.reviewers+'명)'],[t.addedPlaces,'직접 추가한 집'],[t.goneReports,'폐업·이전 신고']];
+  root.appendChild(el('div',{class:'tiles'},tiles.map(function(x){return el('div',{class:'tile'},[el('b',{text:String(x[0])}),el('span',{text:x[1]})]);})));
+  // 최근 30일 막대
+  var max=Math.max(1,Math.max.apply(null,d.map(function(x){return x.visitors;})));
+  var chart=el('div',{class:'chart'});
+  d.forEach(function(x,i){
+    var b=el('div',{class:'bar',title:x.date+' · 방문 '+x.visitors+' · 참여 '+x.active});
+    var wrap=el('div',{style:'width:100%;flex:1;display:flex;align-items:flex-end;gap:1px'});
+    wrap.appendChild(el('i',{style:'height:'+(x.visitors/max*100)+'%'}));
+    wrap.appendChild(el('i',{class:'act',style:'height:'+(x.active/max*100)+'%'}));
+    b.appendChild(wrap);
+    b.appendChild(el('small',{text:(i%5===4||i===d.length-1)?x.date.slice(5).replace('-','/'):''}));
+    chart.appendChild(b);
+  });
+  root.appendChild(el('h2',{text:'최근 30일'}));
+  root.appendChild(el('div',{class:'card'},[chart,el('div',{class:'legend'},[el('span',{},[el('em',{style:'background:var(--accent)'}),'방문자']),el('span',{},[el('em',{style:'background:var(--accent2)'}),'투표·후기 남긴 사람'])])]));
+  // 날짜별 표 (최근 14일, 최신이 위)
+  var rows=d.slice(-14).reverse();
+  var head=['날짜','방문자','열람','참여','투표','후기','세종','반포','여의도','서울역'];
+  var tb=el('tbody',{},rows.map(function(x){var a=x.actions,s=x.sites;return el('tr',{},[x.date.slice(5).replace('-','/'),x.visitors,x.views,x.active,a.vote||0,a.reviews||0,s.sejong||0,s.banpo||0,s.yeouido||0,s.seoul||0].map(function(v){return el('td',{text:String(v)});}));}));
+  root.appendChild(el('h2',{text:'날짜별 (최근 14일)'}));
+  root.appendChild(el('div',{class:'card scroll'},[el('table',{},[el('thead',{},[el('tr',{},head.map(function(h){return el('th',{text:h});}))]),tb])]));
+}).catch(function(){document.getElementById('sub').textContent='집계를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.';});
+</script>
+</body>
+</html>

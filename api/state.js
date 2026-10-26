@@ -91,6 +91,10 @@ module.exports = async (req, res) => {
     } else if (op !== 'hello') {
       throw fail(400, 'bad_op');
     }
+    // 이용량 집계: 오늘 무언가 남긴 사람(중복 제거)과 동작별 횟수
+    const day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    cmds.push(['PFADD', 'st:act:' + day, uid], ['EXPIRE', 'st:act:' + day, 60 * 60 * 24 * 120],
+      ['HINCRBY', 'st:act:n:' + day, op, 1], ['EXPIRE', 'st:act:n:' + day, 60 * 60 * 24 * 120]);
     if (cmds.length) await redis(cmds);
     res.status(200).json(await readAll());
   } catch (e) {
