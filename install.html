@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>설치 방법 · 오늘 뭐 먹지</title>
+<meta name="description" content="오늘 뭐 먹지를 휴대폰 홈 화면에 앱처럼 추가하는 방법">
+<meta name="theme-color" content="#d4451a">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<style>
+:root{--bg:#f1f4f3;--card:#fff;--ink:#1b2321;--muted:#5f6c68;--line:#dbe2df;--chili:#d4451a;--chili-soft:#fde8de}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121716;--card:#1a2120;--ink:#e4ece9;--muted:#9baba6;--line:#2b3533;--chili:#ff7a4d;--chili-soft:#3b2119}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:24px 16px 48px}
+.hero{display:flex;gap:14px;align-items:center;margin-bottom:18px}
+.hero img{width:64px;height:64px;border-radius:16px;flex:none}
+h1{font-size:1.4rem;margin:0}
+.hero p{margin:2px 0 0;color:var(--muted);font-size:.9rem}
+.qr{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+#qrbox{background:#fff;padding:0;border-radius:12px;line-height:0;flex:none}
+#qrbox svg{width:180px;height:180px;display:block}
+.qr .txt{flex:1 1 220px;min-width:0}
+.url{font-weight:700;font-size:1.05rem;word-break:break-all}
+.btn{display:inline-block;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 14px;font:inherit;font-size:.9rem;cursor:pointer;text-decoration:none;margin:8px 6px 0 0}
+.btn.dark{background:var(--chili);border-color:var(--chili);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.card h2{font-size:1rem;margin:0 0 6px}
+ol{margin:0;padding-left:1.2em}
+li{margin:4px 0}
+.k{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:0 6px;font-size:.85em;background:var(--bg)}
+.note{color:var(--muted);font-size:.85rem;margin-top:16px}
+.hl{background:var(--chili-soft);border-radius:14px;padding:12px 14px;margin-bottom:12px;font-size:.92rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <img src="/icons/icon-192.png" alt="">
+    <div><h1>오늘 뭐 먹지 · 홈 화면에 추가</h1><p>앱스토어 설치 없이, 아이콘 하나로 바로 열려요.</p></div>
+  </div>
+
+  <div class="hl" id="hl" hidden></div>
+
+  <div class="qr">
+    <div id="qrbox" aria-label="앱 주소 QR 코드"></div>
+    <div class="txt">
+      <div style="color:var(--muted);font-size:.85rem">휴대폰 카메라로 찍으면 바로 열려요</div>
+      <div class="url" id="url"></div>
+      <button class="btn" type="button" id="copy">주소 복사</button>
+      <a class="btn dark" href="/" id="open">앱 열기</a>
+      <button class="btn dark" type="button" id="installBtn" hidden>홈 화면에 추가</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>아이폰</h2>
+      <ol>
+        <li><b>Safari</b>로 주소를 엽니다.</li>
+        <li>아래쪽 <span class="k">공유</span> 버튼(네모에 ↑)을 누릅니다.</li>
+        <li><span class="k">홈 화면에 추가</span> → <span class="k">추가</span></li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2>갤럭시·안드로이드</h2>
+      <ol>
+        <li><b>Chrome</b>이나 <b>삼성 인터넷</b>으로 주소를 엽니다.</li>
+        <li>화면 위 안내의 <span class="k">홈 화면에 추가</span>를 누르거나</li>
+        <li>메뉴 <span class="k">⋮</span>(삼성 인터넷은 <span class="k">≡</span>) → <span class="k">홈 화면에 추가</span> / <span class="k">앱 설치</span></li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2>카카오톡으로 받았다면</h2>
+      <ol>
+        <li>카카오톡 안에서는 설치가 안 돼요.</li>
+        <li>오른쪽 아래(또는 위) <span class="k">⋯</span> → <span class="k">다른 브라우저로 열기</span></li>
+        <li>열린 Safari·Chrome에서 위 방법대로 추가합니다.</li>
+      </ol>
+    </div>
+  </div>
+
+  <p class="note">홈 화면 아이콘으로 열면 주소창 없이 앱처럼 뜨고, 투표·후기도 그대로 이어져요. 식당 정보가 바뀌면 다음에 열 때 자동으로 최신이 됩니다. 처음 연 브라우저(기기)마다 닉네임을 한 번 정해야 해요.</p>
+</div>
+<script src="/qr.js"></script>
+<script>
+(function(){
+  var home=location.origin+'/';
+  document.getElementById('url').textContent=home.replace(/^https?:\/\//,'').replace(/\/$/,'');
+  try{document.getElementById('qrbox').innerHTML=window.qrSvg(home);}
+  catch(e){document.getElementById('qrbox').hidden=true;}
+  document.getElementById('copy').onclick=function(){
+    var b=this;function ok(){b.textContent='복사했어요';setTimeout(function(){b.textContent='주소 복사';},1600);}
+    if(navigator.clipboard)navigator.clipboard.writeText(home).then(ok,function(){prompt('주소를 복사하세요',home);});else prompt('주소를 복사하세요',home);
+  };
+  var ua=navigator.userAgent||'',hl=document.getElementById('hl');
+  if(/KAKAOTALK/i.test(ua)){
+    hl.hidden=false;hl.innerHTML='<b>지금 카카오톡 안에서 보고 계세요.</b> 설치하려면 브라우저로 열어 주세요. ';
+    var a=document.createElement('a');a.className='btn dark';a.href='kakaotalk://web/openExternal?url='+encodeURIComponent(home);a.textContent='다른 브라우저로 열기';hl.appendChild(a);
+  }
+  var deferred=null,btn=document.getElementById('installBtn');
+  window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e;btn.hidden=false;});
+  btn.onclick=function(){if(!deferred)return;deferred.prompt();deferred=null;btn.hidden=true;};
+  if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('/sw.js').catch(function(){});
+})();
+</script>
+</body>
+</html>

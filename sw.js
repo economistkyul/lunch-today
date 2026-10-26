@@ -1,5 +1,5 @@
 // 홈 화면에 추가했을 때 빠르게 열리도록 화면 파일만 저장해 둡니다. 투표 데이터(/api)는 항상 서버에서 받아요.
-const CACHE = 'lunch-v1';
+const CACHE = 'lunch-v2';
 self.addEventListener('install', (e) => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icons/icon-192.png'])).catch(() => {}));

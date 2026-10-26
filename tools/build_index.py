@@ -110,6 +110,44 @@ try{fetch('/api/stats',{method:'POST',headers:{'content-type':'application/json'
 setInterval(function(){if(document.visibilityState==='visible')pull().catch(function(){});},20000);
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')pull().catch(function(){});});
 if('serviceWorker' in navigator&&location.protocol==='https:'){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}
+
+/* ---- 홈 화면에 추가 안내 ---- */
+(function(){
+  var ua=navigator.userAgent||'';
+  var standalone=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+  var isKakao=/KAKAOTALK/i.test(ua), isInApp=isKakao||/NAVER\(inapp|Line\/|BAND\/|Instagram|FBAN|FBAV|DaumApps|everytimeApp|; wv\)/i.test(ua);
+  var isIOS=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  var isAndroid=/Android/i.test(ua), isMobile=isIOS||isAndroid;
+  var deferred=null, DKEY='menuboard.installHide';
+  function hidden(){var t=+(lsGet(DKEY)||0);return t&&Date.now()-t<14*864e5;}
+  function bar(msg,btns){
+    var old=document.getElementById('installBar');if(old)old.remove();
+    var b=el('div',{id:'installBar',role:'region','aria-label':'홈 화면에 추가',style:'display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--chili-soft);border:1px solid color-mix(in srgb,var(--chili) 35%,transparent);color:var(--ink);border-radius:14px;padding:10px 12px;margin:0 0 12px;font-size:.88rem;line-height:1.45'},
+      [el('div',{style:'flex:1 1 220px'},msg)].concat(btns).concat([el('button',{class:'btn',type:'button','aria-label':'안내 닫기',text:'닫기',onclick:function(){lsSet(DKEY,String(Date.now()));b.remove();}})]));
+    var w=document.querySelector('.wrap');w.insertBefore(b,w.firstChild);
+  }
+  function guide(){
+    if(isKakao){
+      bar([el('b',{text:'카카오톡 안에서는 앱 설치가 안 돼요. '}),'‘다른 브라우저로 열기’를 눌러 크롬·사파리에서 연 뒤 홈 화면에 추가해 주세요.'],
+        [el('a',{class:'btn dark',href:'kakaotalk://web/openExternal?url='+encodeURIComponent(location.href),text:'다른 브라우저로 열기'})]);
+    }else if(isInApp){
+      bar([el('b',{text:'앱 안의 브라우저에서는 설치가 안 돼요. '}),'오른쪽 위 ⋯ 메뉴에서 ‘다른 브라우저로 열기’(또는 ‘Safari/Chrome으로 열기’)를 눌러 주세요.'],[]);
+    }else if(deferred){
+      bar([el('b',{text:'홈 화면에 앱처럼 깔아 두세요. '}),'다음부터 아이콘 한 번으로 열려요.'],
+        [el('button',{class:'btn dark',type:'button',text:'홈 화면에 추가',onclick:function(){var d=deferred;deferred=null;d.prompt();(d.userChoice||Promise.resolve({})).then(function(c){var x=document.getElementById('installBar');if(x)x.remove();if(c.outcome==='accepted')toast('홈 화면에 추가했어요');});}})]);
+    }else if(isIOS){
+      bar([el('b',{text:'홈 화면에 앱처럼 깔아 두세요. '}),'Safari 아래쪽 공유 버튼(네모에 ↑) → ‘홈 화면에 추가’ → ‘추가’.'],[]);
+    }else if(isAndroid){
+      bar([el('b',{text:'홈 화면에 앱처럼 깔아 두세요. '}),'브라우저 오른쪽 위 ⋮ 메뉴 → ‘홈 화면에 추가’ 또는 ‘앱 설치’.'],[]);
+    }
+  }
+  window.showInstallGuide=function(){lsSet(DKEY,'0');if(standalone){toast('이미 홈 화면 앱으로 쓰고 있어요');return;}if(!isMobile&&!deferred){location.href='/install';return;}guide();window.scrollTo({top:0,behavior:'smooth'});};
+  window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e;if(!standalone&&!hidden())guide();});
+  window.addEventListener('appinstalled',function(){var x=document.getElementById('installBar');if(x)x.remove();});
+  if(!standalone&&isMobile&&!hidden())setTimeout(function(){if(!document.getElementById('installBar'))guide();},1200);
+  var f=document.querySelector('footer');
+  if(f&&!standalone)f.insertBefore(el('p',{},[el('b',{text:'휴대폰 홈 화면에 추가. '}),el('a',{href:'/install',onclick:function(e){if(isMobile){e.preventDefault();window.showInstallGuide();}},text:'설치 방법 보기 · 동료에게 보여줄 QR 코드'})]),f.firstChild);
+})();
 """
 h = h[:start] + storage + h[end:]
 h = h.replace("var me=null,canWrite=false,votes={},reviews={},extra={},names={},shared=false,db=null,userCap=null;",
