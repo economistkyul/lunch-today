@@ -156,6 +156,10 @@ header.top p{margin:4px 0 0;color:var(--muted);font-size:.86rem}
 .form textarea,.form input,.form select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px}
 .form label{font-size:.78rem;color:var(--muted);display:grid;gap:3px}
 .form [hidden]{display:none!important}
+.pill.park{border-color:color-mix(in srgb,var(--go) 45%,transparent);color:var(--go)}
+.pkbtns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pkbtns .btn{padding:4px 10px;font-size:.78rem}
+.pkbtns .btn[aria-pressed="true"]{background:var(--go);border-color:var(--go);color:#fff}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .law{background:var(--bg);border-radius:10px;padding:10px 12px;font-size:.82rem;margin-top:12px;color:var(--muted)}
 .hsbox{background:var(--gold-soft);border-radius:10px;padding:10px 12px;font-size:.84rem;margin-top:4px}
@@ -226,6 +230,10 @@ footer a{color:var(--muted)}
           <div class="two">
             <label>카페까지 (분)<input id="a-cleg" type="number" min="0" max="60" inputmode="numeric" placeholder="예: 3"></label>
             <label>카페→복귀 (분)<input id="a-cback" type="number" min="0" max="90" inputmode="numeric" placeholder="예: 10"></label>
+          </div>
+          <div class="two">
+            <label>주차<select id="a-pk"><option value="">모름</option><option value="y">주차 가능</option><option value="f">주차 무료·지원</option><option value="n">주차 어려움</option><option value="x">주차 불가</option><option value="v">발렛</option></select></label>
+            <label>주차 메모<input id="a-pkn" maxlength="40" placeholder="예: 건물 지하 1시간 무료"></label>
           </div>
           <div class="two">
             <label>대표 메뉴<input id="a-menu" maxlength="60"></label>
@@ -412,7 +420,7 @@ function vkey(){return S.site+':'+S.meal;}
 function placeReviews(pid){var out=[];Object.keys(reviews).forEach(function(uid){var it=reviews[uid]&&reviews[uid].items&&reviews[uid].items[pid];if(it&&it.s)out.push({uid:uid,r:it});});return out.sort(function(a,b){return (b.r.d||'').localeCompare(a.r.d||'');});}
 function goneCount(pid){var n=0;Object.keys(reviews).forEach(function(uid){var g=reviews[uid]&&reviews[uid].gone;if(g&&g[pid])n++;});return n;}
 function iReportedGone(pid){return !!(me&&reviews[me]&&reviews[me].gone&&reviews[me].gone[pid]);}
-function myReviewDoc(){var r=(me&&reviews[me])||{};return {items:Object.assign({},r.items||{}),gone:Object.assign({},r.gone||{}),tm:Object.assign({},r.tm||{}),nm:Object.assign({},r.nm||{})};}
+function myReviewDoc(){var r=(me&&reviews[me])||{};return {items:Object.assign({},r.items||{}),gone:Object.assign({},r.gone||{}),tm:Object.assign({},r.tm||{}),nm:Object.assign({},r.nm||{}),pk:Object.assign({},r.pk||{})};}
 function setGone(p,on){if(!(me&&canWrite)){toast('신고는 편집 권한으로 초대받은 사람만 할 수 있어요');return;}var doc=myReviewDoc();if(on)doc.gone[p.id]=today();else delete doc.gone[p.id];reviews[me]=doc;renderAll();toast(on?p.name+'을(를) 목록에서 숨겼어요':'신고를 취소했어요');writeReviews(doc).catch(function(){toast('저장하지 못했어요. 다시 눌러 주세요');});}
 function teamScore(pid){var r=placeReviews(pid);if(!r.length)return null;var s=0;r.forEach(function(x){s+=x.r.s;});return {avg:s/r.length,n:r.length};}
 
@@ -527,6 +535,7 @@ function renderControls(){
     c.appendChild(chip('예약 가능',S.opts.indexOf('rsv')>=0,function(){tog(S.opts,'rsv');renderAll();}));
     c.appendChild(chip('1만원 안팎',S.price.indexOf(1)>=0,function(){tog(S.price,1);renderAll();}));
   }
+  if(isSejong())c.appendChild(chip('🅿 주차 가능',S.opts.indexOf('park')>=0,function(){tog(S.opts,'park');renderAll();}));
   c.appendChild(chip('후기 평점 4+',S.opts.indexOf('team4')>=0,function(){tog(S.opts,'team4');renderAll();},'hot'));
   c.appendChild(searchInput());
 }
@@ -539,6 +548,7 @@ function filtered(){
     if(!q&&!inRange(p))return false; // 이름으로 찾을 때는 거리 범위와 상관없이 보여줌
     if(S.opts.indexOf('open')>=0&&closedToday(p))return false;
     if(S.opts.indexOf('rsv')>=0&&!(p.rsv==='yes'||p.rsv==='rec'))return false;
+    if(S.opts.indexOf('park')>=0){var pk=parkInfo(p);if(!pk||!(pk.v==='y'||pk.v==='f'||pk.v==='v'))return false;}
     if(dinner&&S.opts.indexOf('room')>=0&&!(p.room||p.grp))return false;
     if(dinner&&S.opts.indexOf('pub')>=0&&!p.pub)return false;
     if(S.opts.indexOf('team4')>=0){var ts=teamScore(p.id);if(!ts||ts.avg<4)return false;}
@@ -562,6 +572,9 @@ function pillsFor(p){
   var gc=goneCount(p.id);if(gc)o.push(el('span',{class:'pill off',text:'폐업·이전 신고 '+gc+'건'}));
   if(p.closed)o.push(el('span',{class:'pill off',text:p.closed+' 휴무'}));
   if(S.meal==='lunch'&&p.lunch&&!p.dinner)o.push(el('span',{class:'pill off',text:'저녁 일찍 닫음'}));
+  var pki=parkInfo(p),car=!access(p).w;
+  if(pki)o.push(el('span',{class:'pill'+(pki.v==='n'||pki.v==='x'?' off':' park'),title:(pki.m?pki.m+' · ':'')+pki.src,text:'🅿 '+PKL[pki.v]}));
+  else if(car)o.push(el('span',{class:'pill off',text:'🅿 주차 정보 없음'}));
   if(p.custom)o.push(el('span',{class:'pill',text:'직접 추가한 집'}));
   if(p.rom&&!p.nfix)o.push(el('span',{class:'pill off',title:'Google에 영문('+p.rom+')으로만 등록돼 한글로 옮긴 이름이에요',text:'영문 '+p.rom}));
   return o;
@@ -616,6 +629,15 @@ function applyNameFixes(){allPlaces().forEach(function(p){if(p.name0==null)p.nam
 function setNameFix(p,n){if(!guardWrite(function(){setNameFix(p,n);}))return;var doc=myReviewDoc();
   if(n)doc.nm[p.id]={n:n,t:Date.now(),d:today()};else delete doc.nm[p.id];reviews[me]=doc;renderAll();
   toast(n?'상호를 “'+n+'”(으)로 고쳤어요':'원래 이름으로 되돌렸어요');writeReviews(doc).catch(function(){toast('저장하지 못했어요. 다시 눌러 주세요');});}
+/* 주차: 다녀온 사람이 남긴 값(가장 최근) > 직접 추가할 때 입력한 값 > 후기 언급 추정 */
+var PKL={y:'주차 가능',f:'주차 무료·지원',n:'주차 어려움',x:'주차 불가',v:'발렛'};
+function parkFix(pid){var best=null;Object.keys(reviews).forEach(function(uid){var o=reviews[uid]&&reviews[uid].pk&&reviews[uid].pk[pid];if(o&&o.v&&(!best||(o.t||0)>(best.o.t||0)))best={uid:uid,o:o};});return best;}
+function parkInfo(p){var f=parkFix(p.id);if(f)return {v:f.o.v,m:f.o.m||'',src:nameOf(f.uid)+' 님 · '+(f.o.d||'').slice(5).replace('-','/'),fix:f};
+  if(p.custom&&p.pk)return {v:p.pk,m:p.pkn||'',src:'추가한 사람 입력'};
+  if(p.pk)return {v:p.pk,m:p.pkn||'',src:'구글 후기 언급'};return null;}
+function setParkFix(p,v,m){if(!guardWrite(function(){setParkFix(p,v,m);}))return;var doc=myReviewDoc();
+  if(v)doc.pk[p.id]={v:v,m:(m||'').replace(/[<>]/g,'').trim().slice(0,40),t:Date.now(),d:today()};else delete doc.pk[p.id];reviews[me]=doc;renderAll();
+  toast(v?'주차 정보를 모두에게 저장했어요':'주차 정보를 지웠어요');writeReviews(doc).catch(function(){toast('저장하지 못했어요. 다시 눌러 주세요');});}
 function flowParts(p){
   var a=access(p),f=timeFix(p.id),o=f?f.o:{},cs=cafesFor(p,5);
   var go=o.go!=null?o.go:(a.m!=null?a.m:15);
@@ -669,7 +691,7 @@ function flowEditor(p,P,T){
       P.f?el('button',{class:'btn',type:'button',text:'원래 계산으로',onclick:function(){S.editFlow=false;setTimeFix(p,null);}}):null])]);
   sync();return f;
 }
-function select(id){if(S.sel!==id)S.editFlow=false;S.sel=id;renderSheet();renderPlaces();document.getElementById('side').hidden=false;document.getElementById('sheet').scrollTop=0;}
+function select(id){if(S.sel!==id){S.editFlow=false;S.pkOpen=null;}S.sel=id;renderSheet();renderPlaces();document.getElementById('side').hidden=false;document.getElementById('sheet').scrollTop=0;}
 function closeSheet(){if(matchMedia('(max-width:959px)').matches)document.getElementById('side').hidden=true;}
 function renderSheet(){
   var sh=document.getElementById('sheet');sh.innerHTML='';
@@ -688,6 +710,14 @@ function renderSheet(){
   f('가격',PRICE[p.price]+' (추정)');f('위치',p.area+(p.dong&&p.area.indexOf(p.dong)<0?' · '+p.dong:''));
   f('영업',p.hrs?p.hrs.replace(/,/g,' / ')+(p.closed?' · '+p.closed+'요일 휴무':''):'정보 없음 · 네이버에서 확인');
   f('예약',p.rsv==='yes'?'예약 받음 (후기 기준)':(p.rsv==='rec'?(p.auto?'후기에 예약 언급 있음':'예약 권장 (후기 기준)'):'네이버 지도에서 예약 버튼 확인'));
+  (function(){var pki=parkInfo(p),wrap=el('div',{});
+    wrap.appendChild(el('div',{text:pki?(PKL[pki.v]+(pki.m?' · '+pki.m:'')+' ('+pki.src+')'):'아직 정보가 없어요. 네이버 지도 ‘정보’ 탭의 편의시설에서 확인하고 아래에 남겨 주세요.'}));
+    if(S.pkOpen===p.id){var memo=el('input',{maxlength:'40',placeholder:'메모 (예: 건물 지하 1시간 무료, 2대 정도)',value:pki&&pki.fix?pki.m:'',style:'width:100%;margin-top:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:6px 8px;font:inherit;font-size:.82rem'});
+      var row=el('div',{class:'pkbtns'});['y','f','n','x','v'].forEach(function(k){row.appendChild(el('button',{class:'btn',type:'button','aria-pressed':String(!!(pki&&pki.fix&&pki.v===k)),text:PKL[k],onclick:function(){S.pkOpen=null;setParkFix(p,k,memo.value);}}));});
+      if(pki&&pki.fix)row.appendChild(el('button',{class:'btn',type:'button',text:'지우기',onclick:function(){S.pkOpen=null;setParkFix(p,null);}}));
+      wrap.appendChild(row);wrap.appendChild(memo);}
+    else wrap.appendChild(el('button',{class:'btn',style:'padding:2px 10px;font-size:.76rem;margin-top:4px',text:pki?'주차 정보 고치기':'주차 정보 남기기',onclick:function(){S.pkOpen=p.id;renderSheet();}}));
+    f('주차',wrap);})();
   if(p.tel)f('전화',el('span',{class:'tel',text:p.tel}));
   if(p.g)f('구글','★'+p.g.toFixed(1)+(p.gn?' · 리뷰 '+p.gn+'건':''));
   if(p.rom)f('영문 표기',p.rom+(p.nfix?'':' (Google 영문 상호를 한글로 옮겨 적었어요 · 틀리면 아래 ‘상호 바로잡기’로 고쳐 주세요)'));
@@ -765,7 +795,7 @@ function resetAddForm(){var f=document.getElementById('addForm');f.reset();delet
 function editExtra(p){var f=document.getElementById('addForm');f.dataset.edit=p.id;
   var set=function(id,v){document.getElementById(id).value=v==null?'':v;};
   set('a-name',p.name);set('a-tag',p.tags[0]);set('a-area',p.area===site().name?'':p.area);set('a-walk',p.walk);set('a-price',p.price||1);
-  set('a-eat',p.eat);set('a-cafe',p.cafeName||'');set('a-cleg',p.cafeLeg);set('a-cback',p.cafeBack);set('a-menu',p.menu);set('a-tel',p.tel);
+  set('a-eat',p.eat);set('a-pk',p.pk||'');set('a-pkn',p.pkn||'');set('a-cafe',p.cafeName||'');set('a-cleg',p.cafeLeg);set('a-cback',p.cafeBack);set('a-menu',p.menu);set('a-tel',p.tel);
   document.getElementById('a-room').checked=!!p.room;
   document.getElementById('a-submit').textContent='고친 내용 저장';document.getElementById('a-cancel').hidden=false;
   document.getElementById('addSummary').textContent=p.name+' 정보 고치기';
@@ -779,7 +809,7 @@ document.getElementById('addForm').addEventListener('submit',function(e){e.preve
   var id=editId||('x'+Date.now().toString(36));
   var p={id:id,s:old?old.s:S.site,custom:1,by:old?old.by:me,name:name,tags:[tag],cat:MENU[tag].t,area:area||site().name,dong:isSejong()?dongFromText(area):'',walk:isFinite(w)&&w>0?w:null,
     price:+document.getElementById('a-price').value,menu:document.getElementById('a-menu').value.trim()||MENU[tag].t,tel:document.getElementById('a-tel').value.trim(),
-    eat:numVal('a-eat',180),cafeName:document.getElementById('a-cafe').value.replace(/[<>]/g,'').trim().slice(0,30)||null,cafeLeg:numVal('a-cleg',60),cafeBack:numVal('a-cback',90),
+    eat:numVal('a-eat',180),pk:document.getElementById('a-pk').value||null,pkn:document.getElementById('a-pkn').value.replace(/[<>]/g,'').trim().slice(0,40)||null,cafeName:document.getElementById('a-cafe').value.replace(/[<>]/g,'').trim().slice(0,30)||null,cafeLeg:numVal('a-cleg',60),cafeBack:numVal('a-cback',90),
     rsv:room?'rec':'unk',room:room?1:0,grp:room?1:0,pub:null,note:'',closed:'',lunch:1,dinner:1,d:null,lat:null,lng:null,hrs:null};
   extra[id]=p;resetAddForm();renderAll();toast(name+(editId?' 정보를 고쳤어요':' 추가했어요'));
   writeExtra(id,p).catch(function(){toast('저장하지 못했어요');});
@@ -801,8 +831,8 @@ function renderAll(){
 
 /* ---- storage ---- */
 var LKEY='menuboard.local';
-function loadLocal(){try{var o=JSON.parse(localStorage.getItem(LKEY)||'{}');me='local';canWrite=true;votes={local:o.vote||{}};reviews={local:{items:o.items||{},gone:o.gone||{},tm:o.tm||{},nm:o.nm||{}}};extra=o.extra||{};}catch(e){}}
-function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({vote:votes.local||{},items:(reviews.local||{}).items||{},gone:(reviews.local||{}).gone||{},tm:(reviews.local||{}).tm||{},nm:(reviews.local||{}).nm||{},extra:extra}));}catch(e){}return Promise.resolve();}
+function loadLocal(){try{var o=JSON.parse(localStorage.getItem(LKEY)||'{}');me='local';canWrite=true;votes={local:o.vote||{}};reviews={local:{items:o.items||{},gone:o.gone||{},tm:o.tm||{},nm:o.nm||{},pk:o.pk||{}}};extra=o.extra||{};}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({vote:votes.local||{},items:(reviews.local||{}).items||{},gone:(reviews.local||{}).gone||{},tm:(reviews.local||{}).tm||{},nm:(reviews.local||{}).nm||{},pk:(reviews.local||{}).pk||{},extra:extra}));}catch(e){}return Promise.resolve();}
 var writeVote=function(){return saveLocal();},writeReviews=function(){return saveLocal();},writeExtra=function(){return saveLocal();},
     removeExtra=function(id){delete extra[id];S.sel=null;closeSheet();renderAll();return saveLocal();};
 
