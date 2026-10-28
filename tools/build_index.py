@@ -56,8 +56,8 @@ var ident=null;try{ident=JSON.parse(lsGet(IDKEY)||'null');}catch(e){}
 if(!ident||!/^u[0-9a-f]{16}$/.test(ident.uid||'')||!/^[0-9a-f]{32}$/.test(ident.key||'')){ident={uid:'u'+rid(8),key:rid(16)};lsSet(IDKEY,JSON.stringify(ident));}
 var myName=lsGet(NAMEKEY)||'';
 me=ident.uid;canWrite=true;
-function loadLocal(){try{var o=JSON.parse(lsGet(LKEY)||'{}');votes={};votes[me]=o.vote||{};reviews={};reviews[me]={items:o.items||{},gone:o.gone||{},tm:o.tm||{}};extra=o.extra||{};}catch(e){}}
-function saveLocal(){lsSet(LKEY,JSON.stringify({vote:votes[me]||{},items:(reviews[me]||{}).items||{},gone:(reviews[me]||{}).gone||{},tm:(reviews[me]||{}).tm||{},extra:extra}));return Promise.resolve();}
+function loadLocal(){try{var o=JSON.parse(lsGet(LKEY)||'{}');votes={};votes[me]=o.vote||{};reviews={};reviews[me]={items:o.items||{},gone:o.gone||{},tm:o.tm||{},nm:o.nm||{}};extra=o.extra||{};}catch(e){}}
+function saveLocal(){lsSet(LKEY,JSON.stringify({vote:votes[me]||{},items:(reviews[me]||{}).items||{},gone:(reviews[me]||{}).gone||{},tm:(reviews[me]||{}).tm||{},nm:(reviews[me]||{}).nm||{},extra:extra}));return Promise.resolve();}
 var lastSig='';
 function sheetBusy(){var a=document.activeElement;return !!(a&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT')&&a.closest&&a.closest('#sheet,#addForm,.namebox'));}
 function applyState(j){

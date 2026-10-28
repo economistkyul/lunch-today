@@ -412,7 +412,7 @@ function vkey(){return S.site+':'+S.meal;}
 function placeReviews(pid){var out=[];Object.keys(reviews).forEach(function(uid){var it=reviews[uid]&&reviews[uid].items&&reviews[uid].items[pid];if(it&&it.s)out.push({uid:uid,r:it});});return out.sort(function(a,b){return (b.r.d||'').localeCompare(a.r.d||'');});}
 function goneCount(pid){var n=0;Object.keys(reviews).forEach(function(uid){var g=reviews[uid]&&reviews[uid].gone;if(g&&g[pid])n++;});return n;}
 function iReportedGone(pid){return !!(me&&reviews[me]&&reviews[me].gone&&reviews[me].gone[pid]);}
-function myReviewDoc(){var r=(me&&reviews[me])||{};return {items:Object.assign({},r.items||{}),gone:Object.assign({},r.gone||{}),tm:Object.assign({},r.tm||{})};}
+function myReviewDoc(){var r=(me&&reviews[me])||{};return {items:Object.assign({},r.items||{}),gone:Object.assign({},r.gone||{}),tm:Object.assign({},r.tm||{}),nm:Object.assign({},r.nm||{})};}
 function setGone(p,on){if(!(me&&canWrite)){toast('신고는 편집 권한으로 초대받은 사람만 할 수 있어요');return;}var doc=myReviewDoc();if(on)doc.gone[p.id]=today();else delete doc.gone[p.id];reviews[me]=doc;renderAll();toast(on?p.name+'을(를) 목록에서 숨겼어요':'신고를 취소했어요');writeReviews(doc).catch(function(){toast('저장하지 못했어요. 다시 눌러 주세요');});}
 function teamScore(pid){var r=placeReviews(pid);if(!r.length)return null;var s=0;r.forEach(function(x){s+=x.r.s;});return {avg:s/r.length,n:r.length};}
 
@@ -543,7 +543,7 @@ function filtered(){
     if(dinner&&S.opts.indexOf('pub')>=0&&!p.pub)return false;
     if(S.opts.indexOf('team4')>=0){var ts=teamScore(p.id);if(!ts||ts.avg<4)return false;}
     if(!dinner&&S.price.length&&S.price.indexOf(p.price)<0)return false;
-    if(q&&(p.name+' '+p.menu+' '+p.area+' '+(p.rom||'')).toLowerCase().indexOf(q)<0)return false;
+    if(q&&(p.name+' '+(p.name0||'')+' '+p.menu+' '+p.area+' '+(p.rom||'')).toLowerCase().indexOf(q)<0)return false;
     return true;
   }).map(function(p){return {p:p,h:dinner?hoesik(p):0,a:access(p)};}).sort(function(x,y){
     if(dinner&&Math.abs(y.h-x.h)>=.5)return y.h-x.h;
@@ -563,6 +563,7 @@ function pillsFor(p){
   if(p.closed)o.push(el('span',{class:'pill off',text:p.closed+' 휴무'}));
   if(S.meal==='lunch'&&p.lunch&&!p.dinner)o.push(el('span',{class:'pill off',text:'저녁 일찍 닫음'}));
   if(p.custom)o.push(el('span',{class:'pill',text:'직접 추가한 집'}));
+  if(p.rom&&!p.nfix)o.push(el('span',{class:'pill off',title:'Google에 영문('+p.rom+')으로만 등록돼 한글로 옮긴 이름이에요',text:'영문 '+p.rom}));
   return o;
 }
 function renderPlaces(){
@@ -609,6 +610,12 @@ function timeFix(pid){var best=null;Object.keys(reviews).forEach(function(uid){v
 function guardWrite(after){if(!(me&&canWrite)){toast('고치기는 편집 권한으로 초대받은 사람만 할 수 있어요');return false;}return true;}
 function setTimeFix(p,o){if(!guardWrite(function(){setTimeFix(p,o);}))return;var doc=myReviewDoc();if(o)doc.tm[p.id]=o;else delete doc.tm[p.id];reviews[me]=doc;renderAll();
   toast(o?'고친 시간을 모두에게 저장했어요':'원래 계산으로 되돌렸어요');writeReviews(doc).catch(function(){toast('저장하지 못했어요. 다시 눌러 주세요');});}
+/* 상호 바로잡기: 누구나 고칠 수 있고 가장 최근 값이 모두에게 보임 */
+function nameFix(pid){var best=null;Object.keys(reviews).forEach(function(uid){var o=reviews[uid]&&reviews[uid].nm&&reviews[uid].nm[pid];if(o&&o.n&&(!best||(o.t||0)>(best.o.t||0)))best={uid:uid,o:o};});return best;}
+function applyNameFixes(){allPlaces().forEach(function(p){if(p.name0==null)p.name0=p.name;var f=nameFix(p.id);p.name=f?f.o.n:p.name0;p.nfix=f||null;});}
+function setNameFix(p,n){if(!guardWrite(function(){setNameFix(p,n);}))return;var doc=myReviewDoc();
+  if(n)doc.nm[p.id]={n:n,t:Date.now(),d:today()};else delete doc.nm[p.id];reviews[me]=doc;renderAll();
+  toast(n?'상호를 “'+n+'”(으)로 고쳤어요':'원래 이름으로 되돌렸어요');writeReviews(doc).catch(function(){toast('저장하지 못했어요. 다시 눌러 주세요');});}
 function flowParts(p){
   var a=access(p),f=timeFix(p.id),o=f?f.o:{},cs=cafesFor(p,5);
   var go=o.go!=null?o.go:(a.m!=null?a.m:15);
@@ -683,7 +690,8 @@ function renderSheet(){
   f('예약',p.rsv==='yes'?'예약 받음 (후기 기준)':(p.rsv==='rec'?(p.auto?'후기에 예약 언급 있음':'예약 권장 (후기 기준)'):'네이버 지도에서 예약 버튼 확인'));
   if(p.tel)f('전화',el('span',{class:'tel',text:p.tel}));
   if(p.g)f('구글','★'+p.g.toFixed(1)+(p.gn?' · 리뷰 '+p.gn+'건':''));
-  if(p.rom)f('영문 표기',p.rom+' (Google 영문 상호를 한글로 옮겨 적었어요)');
+  if(p.rom)f('영문 표기',p.rom+(p.nfix?'':' (Google 영문 상호를 한글로 옮겨 적었어요 · 틀리면 아래 ‘상호 바로잡기’로 고쳐 주세요)'));
+  if(p.nfix)f('상호',nameOf(p.nfix.uid)+' 님이 '+(p.nfix.o.d||'').slice(5).replace('-','/')+'에 바로잡은 이름이에요'+(p.name0&&p.name0!==p.name?' (원래 표기: '+p.name0+')':''));
   if(p.note)f('메모',p.note);
   if(p.chk)f('확인','Google에 영업시간·전화가 없고 후기도 적어요. 방문 전 네이버에서 영업 여부를 확인하세요.');
   sh.appendChild(dl);
@@ -723,7 +731,11 @@ function renderSheet(){
   var gc=goneCount(p.id),mine=iReportedGone(p.id);
   sh.appendChild(el('div',{class:'part'},[el('h4',{text:'정보 바로잡기'}),el('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.84rem'},[
     el('button',{class:'btn',disabled:!(me&&canWrite)||null,onclick:function(){setGone(p,!mine);},text:mine?'신고 취소':'없어진 집이에요 (폐업·이전)'}),
-    el('span',{style:'color:var(--muted)',text:gc?('지금까지 '+gc+'명이 신고해 목록에서 숨겨졌어요'):'신고하면 모두의 목록에서 숨겨져요'})])]));
+    el('span',{style:'color:var(--muted)',text:gc?('지금까지 '+gc+'명이 신고해 목록에서 숨겨졌어요'):'신고하면 모두의 목록에서 숨겨져요'})]),
+    (function(){var inp=el('input',{maxlength:'30',placeholder:'실제 간판 상호 (예: 란이)',value:p.nfix?p.name:'',style:'flex:1 1 160px;min-width:0;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:6px 8px;font:inherit'});
+      return el('form',{style:'display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:.84rem',onsubmit:function(e){e.preventDefault();var v=inp.value.replace(/[<>]/g,'').trim().slice(0,30);if(!v){toast('상호를 적어 주세요');return;}if(v===p.name){toast('지금 이름과 같아요');return;}setNameFix(p,v);}},[
+        el('span',{style:'color:var(--muted);flex-basis:100%',text:'상호가 다르거나 바뀌었나요? 고치면 모두에게 반영돼요.'}),inp,el('button',{class:'btn',type:'submit',text:'상호 바로잡기'}),
+        p.nfix?el('button',{class:'btn',type:'button',text:'원래대로',onclick:function(){setNameFix(p,null);}}):null]);})()]));
   if(p.custom&&p.by===me)sh.appendChild(el('button',{class:'btn',style:'margin-top:12px;margin-right:6px',text:'내가 추가한 이 집 정보 고치기',onclick:function(){editExtra(p);}}));
   if(p.custom&&p.by===me)sh.appendChild(el('button',{class:'btn',style:'margin-top:12px',text:'내가 추가한 이 집 삭제',onclick:function(e){var b=e.currentTarget;if(!b.dataset.c){b.dataset.c=1;b.textContent='한 번 더 누르면 삭제';return;}removeExtra(p.id);}}));
 }
@@ -780,6 +792,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeSheet()
 window.addEventListener('hashchange',function(){var hh=(location.hash||'').replace('#','').split('@'),h=hh[0];if(hh[1]&&originById(hh[1])&&hh[1]!==ORIGIN.id){applyOrigin(originById(hh[1]),true);if(h===S.site)renderAll();}if(SITES[h]&&h!==S.site)switchSite(h);});
 
 function renderAll(){
+  applyNameFixes();
   var d=new Date(),s=site();
   document.getElementById('dateline').textContent=(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DOW[d.getDay()]+') · '+s.origin+' 기준 · '+s.addr+' · 식당 '+places().length+'곳';
   document.getElementById('addSummary').textContent='목록에 없는 '+s.name+' 단골집 추가 (모두에게 보여요)';
@@ -788,8 +801,8 @@ function renderAll(){
 
 /* ---- storage ---- */
 var LKEY='menuboard.local';
-function loadLocal(){try{var o=JSON.parse(localStorage.getItem(LKEY)||'{}');me='local';canWrite=true;votes={local:o.vote||{}};reviews={local:{items:o.items||{},gone:o.gone||{},tm:o.tm||{}}};extra=o.extra||{};}catch(e){}}
-function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({vote:votes.local||{},items:(reviews.local||{}).items||{},gone:(reviews.local||{}).gone||{},tm:(reviews.local||{}).tm||{},extra:extra}));}catch(e){}return Promise.resolve();}
+function loadLocal(){try{var o=JSON.parse(localStorage.getItem(LKEY)||'{}');me='local';canWrite=true;votes={local:o.vote||{}};reviews={local:{items:o.items||{},gone:o.gone||{},tm:o.tm||{},nm:o.nm||{}}};extra=o.extra||{};}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({vote:votes.local||{},items:(reviews.local||{}).items||{},gone:(reviews.local||{}).gone||{},tm:(reviews.local||{}).tm||{},nm:(reviews.local||{}).nm||{},extra:extra}));}catch(e){}return Promise.resolve();}
 var writeVote=function(){return saveLocal();},writeReviews=function(){return saveLocal();},writeExtra=function(){return saveLocal();},
     removeExtra=function(id){delete extra[id];S.sel=null;closeSheet();renderAll();return saveLocal();};
 
