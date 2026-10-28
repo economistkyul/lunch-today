@@ -536,7 +536,7 @@ function filtered(){
     if(!baseOk(p))return false;
     if(!S.showGone&&goneCount(p.id))return false;
     if(S.menu&&p.tags.indexOf(S.menu)<0)return false;
-    if(!inRange(p))return false;
+    if(!q&&!inRange(p))return false; // 이름으로 찾을 때는 거리 범위와 상관없이 보여줌
     if(S.opts.indexOf('open')>=0&&closedToday(p))return false;
     if(S.opts.indexOf('rsv')>=0&&!(p.rsv==='yes'||p.rsv==='rec'))return false;
     if(dinner&&S.opts.indexOf('room')>=0&&!(p.room||p.grp))return false;
