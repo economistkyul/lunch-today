@@ -38,13 +38,14 @@ module.exports = async (req, res) => {
       const vid = String(b.vid || '');
       if (!/^u[0-9a-f]{16}$/.test(vid)) { res.status(400).json({ ok: false, error: 'bad_id' }); return; }
       const site = SITES.includes(b.site) ? b.site : 'other';
+      const org = String(b.org || '').replace(/[<>"'&]/g, '').trim().slice(0, 20); // 세종 사무실(부처) 이름
       const d = kstDate();
       await redis([
         ['PFADD', 'st:vis:' + d, vid], ['EXPIRE', 'st:vis:' + d, KEEP],
         ['PFADD', 'st:vis:all', vid],
         ['HINCRBY', 'st:view', d, 1],
         ['HINCRBY', 'st:site:' + d, site, 1], ['EXPIRE', 'st:site:' + d, KEEP],
-      ]);
+      ].concat(org ? [['HINCRBY', 'st:org:' + d, org, 1], ['EXPIRE', 'st:org:' + d, KEEP]] : []));
       res.status(200).json({ ok: true });
       return;
     }
@@ -54,7 +55,7 @@ module.exports = async (req, res) => {
     for (let i = 29; i >= 0; i--) days.push(kstDate(i));
     const cmds = [['PFCOUNT', 'st:vis:all'], ['HGETALL', 'st:view'], ['HLEN', 'users'], ['HLEN', 'votes'],
       ['HGETALL', 'reviews'], ['HLEN', 'extra']];
-    days.forEach((d) => cmds.push(['PFCOUNT', 'st:vis:' + d], ['PFCOUNT', 'st:act:' + d], ['HGETALL', 'st:act:n:' + d], ['HGETALL', 'st:site:' + d]));
+    days.forEach((d) => cmds.push(['PFCOUNT', 'st:vis:' + d], ['PFCOUNT', 'st:act:' + d], ['HGETALL', 'st:act:n:' + d], ['HGETALL', 'st:site:' + d], ['HGETALL', 'st:org:' + d]));
     const out = await redis(cmds);
     const [visAll, viewArr, nUsers, nVoters, revArr, nExtra] = out;
     const views = hashToObj(viewArr);
@@ -72,9 +73,9 @@ module.exports = async (req, res) => {
     }
 
     const daily = days.map((d, i) => {
-      const base = 6 + i * 4;
+      const base = 6 + i * 5;
       return { date: d, visitors: out[base] || 0, views: views[d] || 0, active: out[base + 1] || 0,
-        actions: hashToObj(out[base + 2]), sites: hashToObj(out[base + 3]) };
+        actions: hashToObj(out[base + 2]), sites: hashToObj(out[base + 3]), orgs: hashToObj(out[base + 4]) };
     });
     res.status(200).json({
       ok: true,

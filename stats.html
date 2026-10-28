@@ -73,10 +73,17 @@ fetch('/api/stats',{cache:'no-store'}).then(function(r){return r.json();}).then(
   root.appendChild(el('div',{class:'card'},[chart,el('div',{class:'legend'},[el('span',{},[el('em',{style:'background:var(--accent)'}),'방문자']),el('span',{},[el('em',{style:'background:var(--accent2)'}),'투표·후기 남긴 사람'])])]));
   // 날짜별 표 (최근 14일, 최신이 위)
   var rows=d.slice(-14).reverse();
-  var head=['날짜','방문자','열람','참여','투표','후기','세종','반포','여의도','서울역'];
-  var tb=el('tbody',{},rows.map(function(x){var a=x.actions,s=x.sites;return el('tr',{},[x.date.slice(5).replace('-','/'),x.visitors,x.views,x.active,a.vote||0,a.reviews||0,s.sejong||0,s.banpo||0,s.yeouido||0,s.seoul||0].map(function(v){return el('td',{text:String(v)});}));}));
+  var head=['날짜','방문자','열람','참여','후기·고침','집 추가','세종','반포','여의도','서울역'];
+  var tb=el('tbody',{},rows.map(function(x){var a=x.actions,s=x.sites;return el('tr',{},[x.date.slice(5).replace('-','/'),x.visitors,x.views,x.active,a.reviews||0,a.extra||0,s.sejong||0,s.banpo||0,s.yeouido||0,s.seoul||0].map(function(v){return el('td',{text:String(v)});}));}));
   root.appendChild(el('h2',{text:'날짜별 (최근 14일)'}));
   root.appendChild(el('div',{class:'card scroll'},[el('table',{},[el('thead',{},[el('tr',{},head.map(function(h){return el('th',{text:h});}))]),tb])]));
+  // 세종 사무실(부처)별 열람 — 최근 30일 합계
+  var org={};d.forEach(function(x){var o=x.orgs||{};for(var k in o)org[k]=(org[k]||0)+o[k];});
+  var ok=Object.keys(org).sort(function(a,b){return org[b]-org[a];});
+  root.appendChild(el('h2',{text:'세종 사무실(부처)별 열람 · 최근 30일'}));
+  if(!ok.length)root.appendChild(el('div',{class:'card',style:'color:var(--muted);font-size:.85rem',text:'아직 기록이 없어요. 세종 화면을 열 때마다 고른 사무실 기준으로 쌓여요.'}));
+  else{var omax=org[ok[0]];root.appendChild(el('div',{class:'card'},ok.map(function(k){return el('div',{style:'display:grid;grid-template-columns:minmax(0,9em) 1fr 3em;gap:8px;align-items:center;padding:4px 0;font-size:.85rem'},[
+    el('span',{style:'overflow:hidden;text-overflow:ellipsis;white-space:nowrap',text:k}),el('span',{style:'display:block;height:10px;border-radius:3px;background:var(--accent);width:'+Math.max(2,org[k]/omax*100)+'%'}),el('b',{style:'text-align:right;font-variant-numeric:tabular-nums',text:String(org[k])})]);})));}
 }).catch(function(){document.getElementById('sub').textContent='집계를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.';});
 </script>
 </body>

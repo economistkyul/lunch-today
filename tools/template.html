@@ -35,6 +35,10 @@ h1,h2,h3{font-family:var(--font-display);font-weight:400;letter-spacing:0;margin
 
 .sites{display:flex;gap:4px;padding-top:14px;overflow-x:auto;scrollbar-width:none}
 .sites::-webkit-scrollbar{display:none}
+.origin{display:flex;gap:6px 8px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:.84rem}
+.origin label{font-weight:600}
+.origin select{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 8px;font:inherit;max-width:100%}
+.origin .hint{color:var(--muted);font-size:.76rem}
 .sites button{flex:none;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 14px;display:grid;text-align:left;line-height:1.25}
 .sites button b{font-family:var(--font-display);font-weight:400;font-size:1.15rem}
 .sites button span{font-size:.72rem;color:var(--muted)}
@@ -185,6 +189,7 @@ footer a{color:var(--muted)}
     </div>
   </header>
 
+  <div class="origin" id="originRow" hidden></div>
   <section class="board" id="board" aria-live="polite"></section>
 
   <div class="sec-head">
@@ -286,7 +291,7 @@ var RANGES={
 /* ---- state ---- */
 var S={site:'sejong',meal:'lunch',menu:null,ranges:{},opts:['open'],price:[],q:'',sel:null,lucky:null,showAll:false,showGone:false};
 try{var u0=JSON.parse(localStorage.getItem('menuboard.ui2')||'{}');if(u0.site&&SITES[u0.site])S.site=u0.site;if(u0.ranges)S.ranges=u0.ranges;}catch(e){}
-var h0=(location.hash||'').replace('#','');if(SITES[h0])S.site=h0;
+var h0=(location.hash||'').replace('#','').split('@');if(SITES[h0[0]])S.site=h0[0];var hOrigin=h0[1]||'';
 function saveUI(){try{localStorage.setItem('menuboard.ui2',JSON.stringify({site:S.site,ranges:S.ranges}));}catch(e){}}
 var me=null,canWrite=false,votes={},reviews={},extra={},names={},shared=false,db=null,userCap=null;
 
@@ -294,6 +299,66 @@ var me=null,canWrite=false,votes={},reviews={},extra={},names={},shared=false,db
 function el(t,a,k){var e=document.createElement(t);if(a)for(var x in a){var v=a[x];if(v==null||v===false)continue;if(x==='text')e.textContent=v;else if(x.slice(0,2)==='on')e.addEventListener(x.slice(2),v);else e.setAttribute(x,v===true?'':v);}(k||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==='string'?document.createTextNode(c):c);});return e;}
 function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function hav(a,b,c,d){var R=6371000,r=Math.PI/180,h=Math.pow(Math.sin((c-a)*r/2),2)+Math.cos(a*r)*Math.cos(c*r)*Math.pow(Math.sin((d-b)*r/2),2);return 2*R*Math.asin(Math.sqrt(h));}
+/* ---- 세종: 사무실(기점) 고르기 — 기본은 기획예산처(5동), 고르면 거리·도보시간을 그곳에서 다시 계산 ---- */
+var ORIGINS=[
+ ['mpb','부처·기관','기획예산처','5동',36.5047,127.2654],['opm','부처·기관','국무조정실·국무총리비서실','1동',36.5033,127.2714],
+ ['ftc','부처·기관','공정거래위원회','2동',36.5044,127.2684],['msit','부처·기관','과학기술정보통신부','4동',36.5061,127.2665],
+ ['mafra','부처·기관','농림축산식품부','5동',36.5047,127.2654],['molit','부처·기관','국토교통부','6동',36.5052,127.2630],
+ ['me','부처·기관','기후에너지환경부','6동',36.5058,127.2625],['moleg','부처·기관','법제처','7동',36.5061,127.2594],
+ ['acrc','부처·기관','국민권익위원회','7동',36.5058,127.2591],['post','부처·기관','우정사업본부','8동',36.5047,127.2592],
+ ['mpva','부처·기관','국가보훈부','9동',36.5031,127.2613],['mohw','부처·기관','보건복지부','10동',36.5025,127.2621],
+ ['moel','부처·기관','고용노동부','11동',36.5013,127.2614],['motie','부처·기관','산업통상부','13동',36.4991,127.2610],
+ ['moe','부처·기관','교육부','14동',36.4993,127.2658],['mcst','부처·기관','문화체육관광부','15동',36.4975,127.2659],
+ ['moef','부처·기관','재정경제부','중앙동',36.5024,127.2652],['mois','부처·기관','행정안전부','중앙동',36.5025,127.2652],
+ ['naacc','부처·기관','행정중심복합도시건설청','중앙동',36.5024,127.2652],['nts','부처·기관','국세청','2청사 16동',36.4853,127.2604],
+ ['mpm','부처·기관','인사혁신처','2청사 17동',36.4835,127.2607],['nfa','부처·기관','소방청','2청사 17동',36.4835,127.2607],
+ ['mss','부처·기관','중소벤처기업부','세종파이낸스센터',36.4974,127.2599],['nrc','부처·기관','국책연구단지','국책연구단지',36.4953,127.3044],
+ ['b1','청사 동으로','1동','1동',36.5033,127.2714],['b2','청사 동으로','2동','2동',36.5044,127.2684],['b3','청사 동으로','3동','3동',36.5055,127.2676],
+ ['b4','청사 동으로','4동','4동',36.5061,127.2665],['b5','청사 동으로','5동','5동',36.5047,127.2654],['b6','청사 동으로','6동','6동',36.5055,127.2627],
+ ['b7','청사 동으로','7동','7동',36.5060,127.2593],['b8','청사 동으로','8동','8동',36.5047,127.2592],['b9','청사 동으로','9동','9동',36.5031,127.2613],
+ ['b10','청사 동으로','10동','10동',36.5025,127.2621],['b11','청사 동으로','11동','11동',36.5013,127.2614],['b12','청사 동으로','12동','12동',36.5002,127.2612],
+ ['b13','청사 동으로','13동','13동',36.4991,127.2610],['b14','청사 동으로','14동','14동',36.4993,127.2658],['b15','청사 동으로','15동','15동',36.4975,127.2659],
+ ['bc','청사 동으로','중앙동','중앙동',36.5024,127.2652],['b16','청사 동으로','2청사 16동','2청사 16동',36.4853,127.2604],['b17','청사 동으로','2청사 17동','2청사 17동',36.4835,127.2607],
+ ['ktg','청사 밖 사무실','KT&G 세종타워 B','세종타워 B',36.4990,127.2563],['meann','청사 밖 사무실','기후에너지환경부 별관','한누리대로 499',36.5083,127.2610]
+].map(function(a){return {id:a[0],g:a[1],t:a[2],b:a[3],lat:a[4],lng:a[5]};});
+var OKEY='menuboard.origin',SJ0=Object.assign({},SITES.sejong);
+function originById(id){for(var i=0;i<ORIGINS.length;i++)if(ORIGINS[i].id===id)return ORIGINS[i];return null;}
+function loadOrigin(){var o=null;try{o=JSON.parse(localStorage.getItem(OKEY)||'null');}catch(e){}
+  if(o&&o.id==='gps'&&isFinite(o.lat)&&isFinite(o.lng))return {id:'gps',g:'',t:'내 현재 위치',b:'현재 위치',lat:+o.lat,lng:+o.lng};
+  return (o&&originById(o.id))||ORIGINS[0];}
+var ORIGIN=ORIGINS[0];
+function applyOrigin(o,save){
+  ORIGIN=o;var sj=SITES.sejong,inC=/^(\d+동|중앙동|2청사)/.test(o.b);
+  sj.lat=o.lat;sj.lng=o.lng;
+  var place=o.b.indexOf('2청사')===0?'정부세종2청사 '+o.b.replace('2청사 ',''):(inC?'정부세종청사 '+o.b:o.b);
+  sj.origin=o.id==='mpb'?SJ0.origin:(o.id==='gps'?'내 현재 위치':(o.g==='부처·기관'?(o.t===o.b?o.t:o.t+' ('+o.b+')'):(inC?place:o.t)));
+  sj.short=o.id==='gps'?'사무실':(o.b.indexOf('2청사')===0?o.b.replace('2청사 ',''):o.b);
+  sj.addr=o.id==='mpb'?SJ0.addr:(o.id==='gps'?'내 기기 위치 기준':(o.g==='부처·기관'?(o.t===o.b?'세종 반곡동':place):(inC?'정부세종청사':o.b)));
+  DATA.places.forEach(function(p){if(p.s==='sejong'&&p.lat!=null)p.d=Math.round(hav(o.lat,o.lng,p.lat,p.lng));});
+  DATA.cafes.forEach(function(c){if(c.s==='sejong'&&c.lat!=null)c.d=Math.round(hav(o.lat,o.lng,c.lat,c.lng));});
+  if(save){try{localStorage.setItem(OKEY,JSON.stringify(o.id==='gps'?{id:'gps',lat:o.lat,lng:o.lng}:{id:o.id}));}catch(e){}}
+}
+(function(){var ho=hOrigin&&originById(hOrigin);applyOrigin(ho||loadOrigin(),!!ho);})();
+function renderOrigin(){
+  var row=document.getElementById('originRow');row.innerHTML='';row.hidden=S.site!=='sejong';if(row.hidden)return;
+  var sel=el('select',{id:'originSel','aria-label':'내 사무실 위치'}),groups={};
+  ORIGINS.forEach(function(o){var g=groups[o.g];if(!g){g=groups[o.g]=el('optgroup',{label:o.g});sel.appendChild(g);}
+    g.appendChild(el('option',{value:o.id,text:o.g==='부처·기관'&&o.t!==o.b?o.t+' · '+o.b:o.t}));});
+  sel.appendChild(el('option',{value:'gps',text:'📍 내 현재 위치로'}));
+  sel.value=ORIGIN.id;
+  sel.addEventListener('change',function(){var v=sel.value;
+    if(v==='gps'){if(!navigator.geolocation){toast('이 기기에서는 위치를 쓸 수 없어요');sel.value=ORIGIN.id;return;}
+      toast('위치를 확인하는 중이에요');
+      navigator.geolocation.getCurrentPosition(function(pos){var la=pos.coords.latitude,ln=pos.coords.longitude;
+        if(hav(la,ln,SJ0.lat,SJ0.lng)>8000){toast('세종청사 근처가 아니어서 위치를 쓰지 않았어요');sel.value=ORIGIN.id;return;}
+        applyOrigin({id:'gps',g:'',t:'내 현재 위치',b:'현재 위치',lat:la,lng:ln},true);S.sel=null;renderAll();toast('지금 위치를 기점으로 바꿨어요');},
+        function(){toast('위치 권한이 없어 바꾸지 못했어요');sel.value=ORIGIN.id;},{enableHighAccuracy:true,timeout:10000,maximumAge:60000});return;}
+    var o=originById(v);if(!o)return;applyOrigin(o,true);S.sel=null;renderAll();toast(o.t+' 기준으로 거리를 다시 계산했어요');});
+  row.appendChild(el('label',{for:'originSel',text:'내 사무실'}));row.appendChild(sel);
+  if(ORIGIN.id!=='gps')row.appendChild(el('button',{class:'btn',style:'padding:3px 10px;font-size:.76rem',text:'이 기준으로 링크 복사',onclick:function(){
+    var u=location.origin+location.pathname+'#sejong@'+ORIGIN.id;try{navigator.clipboard.writeText(u).then(function(){toast('링크를 복사했어요. 같은 부처 동료에게 보내 주세요');},function(){toast(u);});}catch(e){toast(u);}}}));
+  row.appendChild(el('span',{class:'hint',text:'거리·도보 시간을 여기서부터 계산해요 · 이 기기에 저장'+(ORIGIN.id==='nrc'?' · 주변 식당이 적어 차량 이동 범위를 함께 보세요':'')}));
+}
 function walkMin(m){return Math.max(2,Math.round(m*1.3/70));}
 function driveMin(m){return Math.max(5,Math.round(m*1.35/400)+4);}
 function site(){return SITES[S.site];}
@@ -368,7 +433,7 @@ function renderSites(){
     n.appendChild(el('button',{'aria-pressed':String(S.site===k),onclick:function(){switchSite(k);}},[el('b',{text:s.name}),el('span',{text:s.origin})]));});
 }
 function switchSite(k){if(S.site===k)return;S.site=k;S.menu=null;S.sel=null;S.lucky=null;S.showAll=false;saveUI();
-  try{history.replaceState(null,'','#'+k);}catch(e){try{location.hash=k;}catch(e2){}}
+  try{history.replaceState(null,'','#'+k+(k==='sejong'&&ORIGIN.id!=='mpb'?'@'+ORIGIN.id:''));}catch(e){try{location.hash=k;}catch(e2){}}
   closeSheet();renderAll();window.scrollTo({top:0});}
 
 /* ---- recent reviews (top of page) ---- */
@@ -710,13 +775,13 @@ document.querySelectorAll('.meal button').forEach(function(b){b.addEventListener
   document.querySelectorAll('.meal button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});renderAll();});});
 document.getElementById('side').addEventListener('click',function(e){if(e.target.id==='side')closeSheet();});
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeSheet();});
-window.addEventListener('hashchange',function(){var h=(location.hash||'').replace('#','');if(SITES[h]&&h!==S.site)switchSite(h);});
+window.addEventListener('hashchange',function(){var hh=(location.hash||'').replace('#','').split('@'),h=hh[0];if(hh[1]&&originById(hh[1])&&hh[1]!==ORIGIN.id){applyOrigin(originById(hh[1]),true);if(h===S.site)renderAll();}if(SITES[h]&&h!==S.site)switchSite(h);});
 
 function renderAll(){
   var d=new Date(),s=site();
   document.getElementById('dateline').textContent=(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DOW[d.getDay()]+') · '+s.origin+' 기준 · '+s.addr+' · 식당 '+places().length+'곳';
   document.getElementById('addSummary').textContent='목록에 없는 '+s.name+' 단골집 추가 (모두에게 보여요)';
-  renderSites();renderBoard();renderTiles();renderControls();renderPlaces();renderSheet();
+  renderSites();renderOrigin();renderBoard();renderTiles();renderControls();renderPlaces();renderSheet();
 }
 
 /* ---- storage ---- */
