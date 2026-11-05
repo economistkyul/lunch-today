@@ -156,6 +156,9 @@ header.top p{margin:4px 0 0;color:var(--muted);font-size:.86rem}
 .form textarea,.form input,.form select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px}
 .form label{font-size:.78rem;color:var(--muted);display:grid;gap:3px}
 .form [hidden]{display:none!important}
+.pill.na{border-color:color-mix(in srgb,#8a6d1f 50%,transparent);color:#8a6d1f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pill.na{color:#e2c06b;border-color:color-mix(in srgb,#e2c06b 45%,transparent)}}
+:root[data-theme="dark"] .pill.na{color:#e2c06b;border-color:color-mix(in srgb,#e2c06b 45%,transparent)}
 .pill.park{border-color:color-mix(in srgb,var(--go) 45%,transparent);color:var(--go)}
 .pkbtns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .pkbtns .btn{padding:4px 10px;font-size:.78rem}
@@ -536,6 +539,7 @@ function renderControls(){
     c.appendChild(chip('1만원 안팎',S.price.indexOf(1)>=0,function(){tog(S.price,1);renderAll();}));
   }
   if(isSejong())c.appendChild(chip('🅿 주차 가능',S.opts.indexOf('park')>=0,function(){tog(S.opts,'park');renderAll();}));
+  if(S.site==='yeouido')c.appendChild(chip('🏛 의원 단골',S.opts.indexOf('na')>=0,function(){tog(S.opts,'na');renderAll();}));
   c.appendChild(chip('후기 평점 4+',S.opts.indexOf('team4')>=0,function(){tog(S.opts,'team4');renderAll();},'hot'));
   c.appendChild(searchInput());
 }
@@ -548,6 +552,7 @@ function filtered(){
     if(!q&&!inRange(p))return false; // 이름으로 찾을 때는 거리 범위와 상관없이 보여줌
     if(S.opts.indexOf('open')>=0&&closedToday(p))return false;
     if(S.opts.indexOf('rsv')>=0&&!(p.rsv==='yes'||p.rsv==='rec'))return false;
+    if(S.site==='yeouido'&&S.opts.indexOf('na')>=0&&!(p.na&&p.na.m>=NA_MIN))return false;
     if(S.opts.indexOf('park')>=0){var pk=parkInfo(p);if(!pk||!(pk.v==='y'||pk.v==='f'||pk.v==='v'))return false;}
     if(dinner&&S.opts.indexOf('room')>=0&&!(p.room||p.grp))return false;
     if(dinner&&S.opts.indexOf('pub')>=0&&!p.pub)return false;
@@ -556,12 +561,15 @@ function filtered(){
     if(q&&(p.name+' '+(p.name0||'')+' '+p.menu+' '+p.area+' '+(p.rom||'')).toLowerCase().indexOf(q)<0)return false;
     return true;
   }).map(function(p){return {p:p,h:dinner?hoesik(p):0,a:access(p)};}).sort(function(x,y){
+    if(naSort()){var nx=x.p.na?x.p.na.m:0,ny=y.p.na?y.p.na.m:0;if(nx!==ny)return ny-nx;}
     if(dinner&&Math.abs(y.h-x.h)>=.5)return y.h-x.h;
     return (x.a.w?x.a.m:100+(x.a.m||60))-(y.a.w?y.a.m:100+(y.a.m||60));
   }).map(function(x){return x.p;});
 }
+var NA_MIN=10;function naSort(){return S.site==='yeouido'&&S.opts.indexOf('na')>=0;}
 function pillsFor(p){
   var o=[],ts=teamScore(p.id);
+  if(p.na&&p.na.m>=NA_MIN)o.push(el('span',{class:'pill na',title:'2023~24년 국회의원 '+p.na.m+'명이 정치자금으로 식대를 결제한 곳',text:'🏛 의원 단골 '+p.na.m+'명'}));
   if(S.meal==='dinner'&&hoesik(p)>=4)o.push(el('span',{class:'pill hs',text:'회식 추천'}));
   if(ts)o.push(el('span',{class:'pill team',text:'후기 ★'+ts.avg.toFixed(1)+' ('+ts.n+')'}));
   if(p.rsv==='yes')o.push(el('span',{class:'pill rsv',text:'예약 가능'}));else if(p.rsv==='rec')o.push(el('span',{class:'pill rsv',text:p.auto?'예약 언급':'예약 권장'}));
@@ -583,7 +591,7 @@ function renderPlaces(){
   var list=filtered(),dinner=S.meal==='dinner';
   var title=S.menu?((dinner&&DTITLE[S.menu]?DTITLE[S.menu]:MENU[S.menu].t)+(dinner?' · 회식':' · 가까운 집')):(dinner?'회식하기 좋은 집':'가까운 집');
   document.getElementById('placesTitle').textContent=title;
-  document.getElementById('placesCount').textContent=list.length+'곳 · '+rangeLabel()+' · '+(dinner?'회식하기 좋은 순':'가까운 순');
+  document.getElementById('placesCount').textContent=list.length+'곳 · '+rangeLabel()+' · '+(naSort()?'의원 많이 간 순':(dinner?'회식하기 좋은 순':'가까운 순'));
   var box=document.getElementById('cards');box.innerHTML='';
   if(!list.length){box.appendChild(el('div',{class:'more',text:'조건에 맞는 집이 없어요. 범위를 넓히거나 조건 칩을 꺼 보세요.'}));return;}
   var limit=S.showAll?list.length:(S.menu?30:15);
@@ -718,6 +726,7 @@ function renderSheet(){
       wrap.appendChild(row);wrap.appendChild(memo);}
     else wrap.appendChild(el('button',{class:'btn',style:'padding:2px 10px;font-size:.76rem;margin-top:4px',text:pki?'주차 정보 고치기':'주차 정보 남기기',onclick:function(){S.pkOpen=p.id;renderSheet();}}));
     f('주차',wrap);})();
+  if(p.na&&p.na.m>=NA_MIN)f('국회',el('span',{},['2023~24년 국회의원 '+p.na.m+'명이 정치자금으로 식대를 결제한 곳 (총 '+p.na.c+'건)'+(p.na.mb?' · 같은 상호 여러 지점이 한데 합산됐어요':'')+'. 출처: 오마이뉴스·경향신문·뉴스타파가 선관위 정치자금 수입지출보고서를 정리한 공개 데이터 ',el('a',{href:'https://github.com/OhmyNews/KA-money',target:'_blank',rel:'noopener',text:'KA-money'})]));
   if(p.tel)f('전화',el('span',{class:'tel',text:p.tel}));
   if(p.g)f('구글','★'+p.g.toFixed(1)+(p.gn?' · 리뷰 '+p.gn+'건':''));
   if(p.rom)f('영문 표기',p.rom+(p.nfix?'':' (Google 영문 상호를 한글로 옮겨 적었어요 · 틀리면 아래 ‘상호 바로잡기’로 고쳐 주세요)'));
