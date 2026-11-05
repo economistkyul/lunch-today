@@ -156,6 +156,9 @@ header.top p{margin:4px 0 0;color:var(--muted);font-size:.86rem}
 .form textarea,.form input,.form select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px}
 .form label{font-size:.78rem;color:var(--muted);display:grid;gap:3px}
 .form [hidden]{display:none!important}
+.pill.late{border-color:color-mix(in srgb,#5b55c9 50%,transparent);color:#5b55c9}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pill.late{color:#a9a4ff;border-color:color-mix(in srgb,#a9a4ff 45%,transparent)}}
+:root[data-theme="dark"] .pill.late{color:#a9a4ff;border-color:color-mix(in srgb,#a9a4ff 45%,transparent)}
 .pill.na{border-color:color-mix(in srgb,#8a6d1f 50%,transparent);color:#8a6d1f}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pill.na{color:#e2c06b;border-color:color-mix(in srgb,#e2c06b 45%,transparent)}}
 :root[data-theme="dark"] .pill.na{color:#e2c06b;border-color:color-mix(in srgb,#e2c06b 45%,transparent)}
@@ -277,10 +280,11 @@ var MENUS=[
   {k:'haemul',t:'낙지·해물',d:'낙지볶음 · 아구찜 · 복요리 · 장어'},
   {k:'western',t:'파스타·양식',d:'파스타 · 피자 · 버거 · 스테이크'},
   {k:'light',t:'김밥·분식',d:'김밥 · 떡볶이 · 만두 · 샌드위치'},
-  {k:'salad',t:'샐러드·포케',d:'포케 · 샐러드볼 · 가볍게'}
+  {k:'salad',t:'샐러드·포케',d:'포케 · 샐러드볼 · 가볍게'},
+  {k:'pub',t:'술집·2차',d:'호프 · 포차 · 골뱅이 · 이자카야',dinnerOnly:1}
 ];
 var MENU={};MENUS.forEach(function(m){MENU[m.k]=m;});
-var DINNER_ORDER=['meat','sushi','haemul','chinese','japan','soup','baekban','western','asian','gukbap','noodle','katsu','light','salad'];
+var DINNER_ORDER=['meat','sushi','haemul','pub','chinese','japan','soup','baekban','western','asian','gukbap','noodle','katsu','light','salad'];
 var DTITLE={japan:'이자카야·일식',baekban:'한정식·한식',soup:'전골·샤브',chinese:'중식 요리',sushi:'횟집·초밥'};
 var DDESC={meat:'한우 · 삼겹살 · 갈비 · 곱창',sushi:'횟집 · 오마카세 · 참치',haemul:'낙지 · 조개전골 · 아구찜 · 장어',chinese:'중식 코스 · 요리 · 양꼬치',
   japan:'이자카야 · 장어덮밥 · 일식 요리',soup:'샤브샤브 · 곱창전골 · 조개전골',baekban:'한정식 · 한상 · 보리굴비',western:'파스타 · 스테이크 · 와인'};
@@ -423,7 +427,7 @@ function vkey(){return S.site+':'+S.meal;}
 function placeReviews(pid){var out=[];Object.keys(reviews).forEach(function(uid){var it=reviews[uid]&&reviews[uid].items&&reviews[uid].items[pid];if(it&&it.s)out.push({uid:uid,r:it});});return out.sort(function(a,b){return (b.r.d||'').localeCompare(a.r.d||'');});}
 function goneCount(pid){var n=0;Object.keys(reviews).forEach(function(uid){var g=reviews[uid]&&reviews[uid].gone;if(g&&g[pid])n++;});return n;}
 function iReportedGone(pid){return !!(me&&reviews[me]&&reviews[me].gone&&reviews[me].gone[pid]);}
-function myReviewDoc(){var r=(me&&reviews[me])||{};return {items:Object.assign({},r.items||{}),gone:Object.assign({},r.gone||{}),tm:Object.assign({},r.tm||{}),nm:Object.assign({},r.nm||{}),pk:Object.assign({},r.pk||{})};}
+function myReviewDoc(){var r=(me&&reviews[me])||{};return {items:Object.assign({},r.items||{}),gone:Object.assign({},r.gone||{}),tm:Object.assign({},r.tm||{}),nm:Object.assign({},r.nm||{}),pk:Object.assign({},r.pk||{}),cl:Object.assign({},r.cl||{})};}
 function setGone(p,on){if(!(me&&canWrite)){toast('신고는 편집 권한으로 초대받은 사람만 할 수 있어요');return;}var doc=myReviewDoc();if(on)doc.gone[p.id]=today();else delete doc.gone[p.id];reviews[me]=doc;renderAll();toast(on?p.name+'을(를) 목록에서 숨겼어요':'신고를 취소했어요');writeReviews(doc).catch(function(){toast('저장하지 못했어요. 다시 눌러 주세요');});}
 function teamScore(pid){var r=placeReviews(pid);if(!r.length)return null;var s=0;r.forEach(function(x){s+=x.r.s;});return {avg:s/r.length,n:r.length};}
 
@@ -494,7 +498,7 @@ function renderTiles(){
   var box=document.getElementById('tiles');box.innerHTML='';
   var dinner=S.meal==='dinner';
   document.getElementById('tilesTitle').textContent=dinner?'회식 메뉴부터 골라요':'메뉴부터 골라요';
-  var order=dinner?DINNER_ORDER.map(function(k){return MENU[k];}):MENUS;
+  var order=dinner?DINNER_ORDER.map(function(k){return MENU[k];}):MENUS.filter(function(m){return !m.dinnerOnly;});
   var pool=places().filter(function(p){return baseOk(p)&&inRange(p)&&!closedToday(p)&&!goneCount(p.id);});
   order.forEach(function(m){
     var list=pool.filter(function(p){return p.tags.indexOf(m.k)>=0;});
@@ -539,6 +543,7 @@ function renderControls(){
     c.appendChild(chip('1만원 안팎',S.price.indexOf(1)>=0,function(){tog(S.price,1);renderAll();}));
   }
   if(isSejong())c.appendChild(chip('🅿 주차 가능',S.opts.indexOf('park')>=0,function(){tog(S.opts,'park');renderAll();}));
+  if(S.meal==='dinner')c.appendChild(chip('🌙 늦게까지',S.opts.indexOf('late')>=0,function(){tog(S.opts,'late');renderAll();}));
   if(S.site==='yeouido')c.appendChild(chip('🏛 의원 단골',S.opts.indexOf('na')>=0,function(){tog(S.opts,'na');renderAll();}));
   c.appendChild(chip('후기 평점 4+',S.opts.indexOf('team4')>=0,function(){tog(S.opts,'team4');renderAll();},'hot'));
   c.appendChild(searchInput());
@@ -552,6 +557,7 @@ function filtered(){
     if(!q&&!inRange(p))return false; // 이름으로 찾을 때는 거리 범위와 상관없이 보여줌
     if(S.opts.indexOf('open')>=0&&closedToday(p))return false;
     if(S.opts.indexOf('rsv')>=0&&!(p.rsv==='yes'||p.rsv==='rec'))return false;
+    if(lateSort()&&lateMin(p)<23*60)return false; // 밤 11시 이후까지 여는 집
     if(S.site==='yeouido'&&S.opts.indexOf('na')>=0&&!(p.na&&p.na.m>=NA_MIN))return false;
     if(S.opts.indexOf('park')>=0){var pk=parkInfo(p);if(!pk||!(pk.v==='y'||pk.v==='f'||pk.v==='v'))return false;}
     if(dinner&&S.opts.indexOf('room')>=0&&!(p.room||p.grp))return false;
@@ -561,6 +567,7 @@ function filtered(){
     if(q&&(p.name+' '+(p.name0||'')+' '+p.menu+' '+p.area+' '+(p.rom||'')).toLowerCase().indexOf(q)<0)return false;
     return true;
   }).map(function(p){return {p:p,h:dinner?hoesik(p):0,a:access(p)};}).sort(function(x,y){
+    if(lateSort()){var lx=lateMin(x.p),ly=lateMin(y.p);if(lx!==ly)return ly-lx;}
     if(naSort()){var nx=x.p.na?x.p.na.m:0,ny=y.p.na?y.p.na.m:0;if(nx!==ny)return ny-nx;}
     if(dinner&&Math.abs(y.h-x.h)>=.5)return y.h-x.h;
     return (x.a.w?x.a.m:100+(x.a.m||60))-(y.a.w?y.a.m:100+(y.a.m||60));
@@ -569,6 +576,7 @@ function filtered(){
 var NA_MIN=10;function naSort(){return S.site==='yeouido'&&S.opts.indexOf('na')>=0;}
 function pillsFor(p){
   var o=[],ts=teamScore(p.id);
+  if(S.meal==='dinner'){var ci=closeInfo(p);if(ci&&ci.m>0)o.push(el('span',{class:'pill'+(ci.m>=23*60?' late':''),title:'오늘 마감 · '+ci.src,text:(ci.m>=23*60?'🌙 ':'')+(ci.m>=2880?'24시간 영업':closeLabel(ci.m)+'까지')}));}
   if(p.na&&p.na.m>=NA_MIN)o.push(el('span',{class:'pill na',title:'2023~24년 국회의원 '+p.na.m+'명이 정치자금으로 식대를 결제한 곳',text:'🏛 의원 단골 '+p.na.m+'명'}));
   if(S.meal==='dinner'&&hoesik(p)>=4)o.push(el('span',{class:'pill hs',text:'회식 추천'}));
   if(ts)o.push(el('span',{class:'pill team',text:'후기 ★'+ts.avg.toFixed(1)+' ('+ts.n+')'}));
@@ -591,7 +599,7 @@ function renderPlaces(){
   var list=filtered(),dinner=S.meal==='dinner';
   var title=S.menu?((dinner&&DTITLE[S.menu]?DTITLE[S.menu]:MENU[S.menu].t)+(dinner?' · 회식':' · 가까운 집')):(dinner?'회식하기 좋은 집':'가까운 집');
   document.getElementById('placesTitle').textContent=title;
-  document.getElementById('placesCount').textContent=list.length+'곳 · '+rangeLabel()+' · '+(naSort()?'의원 많이 간 순':(dinner?'회식하기 좋은 순':'가까운 순'));
+  document.getElementById('placesCount').textContent=list.length+'곳 · '+rangeLabel()+' · '+(lateSort()?'늦게 닫는 순':(naSort()?'의원 많이 간 순':(dinner?'회식하기 좋은 순':'가까운 순')));
   var box=document.getElementById('cards');box.innerHTML='';
   if(!list.length){box.appendChild(el('div',{class:'more',text:'조건에 맞는 집이 없어요. 범위를 넓히거나 조건 칩을 꺼 보세요.'}));return;}
   var limit=S.showAll?list.length:(S.menu?30:15);
@@ -646,6 +654,20 @@ function parkInfo(p){var f=parkFix(p.id);if(f)return {v:f.o.v,m:f.o.m||'',src:na
 function setParkFix(p,v,m){if(!guardWrite(function(){setParkFix(p,v,m);}))return;var doc=myReviewDoc();
   if(v)doc.pk[p.id]={v:v,m:(m||'').replace(/[<>]/g,'').trim().slice(0,40),t:Date.now(),d:today()};else delete doc.pk[p.id];reviews[me]=doc;renderAll();
   toast(v?'주차 정보를 모두에게 저장했어요':'주차 정보를 지웠어요');writeReviews(doc).catch(function(){toast('저장하지 못했어요. 다시 눌러 주세요');});}
+/* 마감 시각: 다녀온 사람이 고친 값(가장 최근) > 구글 요일별 영업시간. 분 단위, 자정 넘기면 +1440, 24시간=2880, 휴무=-1 */
+var DKO=['월','화','수','목','금','토','일'];
+function dayIdx(){var n=new Date(),d=(n.getDay()+6)%7;if(n.getHours()<5)d=(d+6)%7;return d;} // 새벽 5시 전에는 전날 영업으로 봄
+function closeFix(pid){var best=null;Object.keys(reviews).forEach(function(uid){var o=reviews[uid]&&reviews[uid].cl&&reviews[uid].cl[pid];if(o&&o.v!=null&&(!best||(o.t||0)>(best.o.t||0)))best={uid:uid,o:o};});return best;}
+function closeInfo(p){var f=closeFix(p.id);if(f)return {m:f.o.v,src:nameOf(f.uid)+' 님 · '+(f.o.d||'').slice(5).replace('-','/'),fix:f};
+  if(p.cl&&p.cl[dayIdx()]!=null)return {m:p.cl[dayIdx()],src:'구글 영업시간'};return null;}
+function closeLabel(m){if(m==null)return '';if(m<0)return '오늘 휴무';if(m>=2880)return '24시간';var h=Math.floor(m/60),mm=m%60,s=(h%24<10?'0':'')+(h%24)+':'+(mm<10?'0':'')+mm;return (m>=1440?'새벽 ':'')+s;}
+function lateMin(p){var c=closeInfo(p);return c&&c.m>0?c.m:0;}
+function weekClose(p){if(!p.cl)return '';var g=[];p.cl.forEach(function(v,i){var l=v==null?'?':(v<0?'휴무':closeLabel(v));if(g.length&&g[g.length-1].l===l)g[g.length-1].b=i;else g.push({a:i,b:i,l:l});});
+  return g.map(function(x){return DKO[x.a]+(x.b>x.a?'~'+DKO[x.b]:'')+' '+x.l;}).join(' · ');}
+function setCloseFix(p,v){if(!guardWrite(function(){setCloseFix(p,v);}))return;var doc=myReviewDoc();doc.cl=doc.cl||{};
+  if(v!=null)doc.cl[p.id]={v:v,t:Date.now(),d:today()};else delete doc.cl[p.id];reviews[me]=doc;renderAll();
+  toast(v!=null?'마감 시간을 모두에게 저장했어요':'마감 시간을 지웠어요');writeReviews(doc).catch(function(){toast('저장하지 못했어요. 다시 눌러 주세요');});}
+function lateSort(){return S.meal==='dinner'&&S.opts.indexOf('late')>=0;}
 function flowParts(p){
   var a=access(p),f=timeFix(p.id),o=f?f.o:{},cs=cafesFor(p,5);
   var go=o.go!=null?o.go:(a.m!=null?a.m:15);
@@ -699,7 +721,7 @@ function flowEditor(p,P,T){
       P.f?el('button',{class:'btn',type:'button',text:'원래 계산으로',onclick:function(){S.editFlow=false;setTimeFix(p,null);}}):null])]);
   sync();return f;
 }
-function select(id){if(S.sel!==id){S.editFlow=false;S.pkOpen=null;}S.sel=id;renderSheet();renderPlaces();document.getElementById('side').hidden=false;document.getElementById('sheet').scrollTop=0;}
+function select(id){if(S.sel!==id){S.editFlow=false;S.pkOpen=null;S.clOpen=null;}S.sel=id;renderSheet();renderPlaces();document.getElementById('side').hidden=false;document.getElementById('sheet').scrollTop=0;}
 function closeSheet(){if(matchMedia('(max-width:959px)').matches)document.getElementById('side').hidden=true;}
 function renderSheet(){
   var sh=document.getElementById('sheet');sh.innerHTML='';
@@ -727,6 +749,17 @@ function renderSheet(){
     else wrap.appendChild(el('button',{class:'btn',style:'padding:2px 10px;font-size:.76rem;margin-top:4px',text:pki?'주차 정보 고치기':'주차 정보 남기기',onclick:function(){S.pkOpen=p.id;renderSheet();}}));
     f('주차',wrap);})();
   if(p.na&&p.na.m>=NA_MIN)f('국회',el('span',{},['2023~24년 국회의원 '+p.na.m+'명이 정치자금으로 식대를 결제한 곳 (총 '+p.na.c+'건)'+(p.na.mb?' · 같은 상호 여러 지점이 한데 합산됐어요':'')+'. 출처: 오마이뉴스·경향신문·뉴스타파가 선관위 정치자금 수입지출보고서를 정리한 공개 데이터 ',el('a',{href:'https://github.com/OhmyNews/KA-money',target:'_blank',rel:'noopener',text:'KA-money'})]));
+  (function(){var ci=closeInfo(p),wrap=el('div',{});
+    wrap.appendChild(el('div',{text:ci?('오늘 '+(ci.m<0?'휴무':(ci.m>=2880?'24시간 영업':closeLabel(ci.m)+'까지'))+' ('+ci.src+')'):'아직 정보가 없어요. 아시면 아래에 남겨 주세요.'}));
+    var wk=weekClose(p);if(wk)wrap.appendChild(el('div',{style:'color:var(--muted);font-size:.78rem',text:'구글 기준 '+wk}));
+    if(S.clOpen===p.id){var row=el('div',{class:'pkbtns'});var tin=el('input',{type:'time',value:ci&&ci.fix&&ci.m>0&&ci.m<2880?closeLabel(ci.m).replace('새벽 ',''):'',style:'border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:4px 8px;font:inherit;font-size:.82rem'});
+      row.appendChild(tin);
+      row.appendChild(el('button',{class:'btn',type:'button',text:'저장',onclick:function(){var v=tin.value;if(!/^\d\d:\d\d$/.test(v)){toast('마감 시각을 골라 주세요');return;}var m=+v.slice(0,2)*60+ +v.slice(3);if(m<6*60)m+=1440;S.clOpen=null;setCloseFix(p,m);}}));
+      row.appendChild(el('button',{class:'btn',type:'button',text:'24시간',onclick:function(){S.clOpen=null;setCloseFix(p,2880);}}));
+      if(ci&&ci.fix)row.appendChild(el('button',{class:'btn',type:'button',text:'지우기',onclick:function(){S.clOpen=null;setCloseFix(p,null);}}));
+      wrap.appendChild(row);wrap.appendChild(el('div',{style:'color:var(--muted);font-size:.74rem;margin-top:2px',text:'새벽 6시 전 시각은 다음 날 새벽으로 저장돼요. 평소 마감 기준으로 남겨 주세요.'}));}
+    else wrap.appendChild(el('button',{class:'btn',style:'padding:2px 10px;font-size:.76rem;margin-top:4px',text:'마감 시간 바로잡기',onclick:function(){S.clOpen=p.id;renderSheet();}}));
+    f('마감',wrap);})();
   if(p.tel)f('전화',el('span',{class:'tel',text:p.tel}));
   if(p.g)f('구글','★'+p.g.toFixed(1)+(p.gn?' · 리뷰 '+p.gn+'건':''));
   if(p.rom)f('영문 표기',p.rom+(p.nfix?'':' (Google 영문 상호를 한글로 옮겨 적었어요 · 틀리면 아래 ‘상호 바로잡기’로 고쳐 주세요)'));
@@ -840,8 +873,8 @@ function renderAll(){
 
 /* ---- storage ---- */
 var LKEY='menuboard.local';
-function loadLocal(){try{var o=JSON.parse(localStorage.getItem(LKEY)||'{}');me='local';canWrite=true;votes={local:o.vote||{}};reviews={local:{items:o.items||{},gone:o.gone||{},tm:o.tm||{},nm:o.nm||{},pk:o.pk||{}}};extra=o.extra||{};}catch(e){}}
-function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({vote:votes.local||{},items:(reviews.local||{}).items||{},gone:(reviews.local||{}).gone||{},tm:(reviews.local||{}).tm||{},nm:(reviews.local||{}).nm||{},pk:(reviews.local||{}).pk||{},extra:extra}));}catch(e){}return Promise.resolve();}
+function loadLocal(){try{var o=JSON.parse(localStorage.getItem(LKEY)||'{}');me='local';canWrite=true;votes={local:o.vote||{}};reviews={local:{items:o.items||{},gone:o.gone||{},tm:o.tm||{},nm:o.nm||{},pk:o.pk||{},cl:o.cl||{}}};extra=o.extra||{};}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({vote:votes.local||{},items:(reviews.local||{}).items||{},gone:(reviews.local||{}).gone||{},tm:(reviews.local||{}).tm||{},nm:(reviews.local||{}).nm||{},pk:(reviews.local||{}).pk||{},cl:(reviews.local||{}).cl||{},extra:extra}));}catch(e){}return Promise.resolve();}
 var writeVote=function(){return saveLocal();},writeReviews=function(){return saveLocal();},writeExtra=function(){return saveLocal();},
     removeExtra=function(id){delete extra[id];S.sel=null;closeSheet();renderAll();return saveLocal();};
 
