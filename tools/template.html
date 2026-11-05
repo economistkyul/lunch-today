@@ -545,6 +545,7 @@ function renderControls(){
   if(isSejong())c.appendChild(chip('🅿 주차 가능',S.opts.indexOf('park')>=0,function(){tog(S.opts,'park');renderAll();}));
   if(S.meal==='dinner')c.appendChild(chip('🌙 늦게까지',S.opts.indexOf('late')>=0,function(){tog(S.opts,'late');renderAll();}));
   if(S.site==='yeouido')c.appendChild(chip('🏛 의원 단골',S.opts.indexOf('na')>=0,function(){tog(S.opts,'na');renderAll();}));
+  c.appendChild(chip('마감 늦은 순',S.opts.indexOf('sortlate')>=0,function(){tog(S.opts,'sortlate');renderAll();}));
   c.appendChild(chip('후기 평점 4+',S.opts.indexOf('team4')>=0,function(){tog(S.opts,'team4');renderAll();},'hot'));
   c.appendChild(searchInput());
 }
@@ -557,7 +558,7 @@ function filtered(){
     if(!q&&!inRange(p))return false; // 이름으로 찾을 때는 거리 범위와 상관없이 보여줌
     if(S.opts.indexOf('open')>=0&&closedToday(p))return false;
     if(S.opts.indexOf('rsv')>=0&&!(p.rsv==='yes'||p.rsv==='rec'))return false;
-    if(lateSort()&&lateMin(p)<23*60)return false; // 밤 11시 이후까지 여는 집
+    if(lateOnly()&&lateMin(p)<23*60)return false; // 밤 11시 이후까지 여는 집
     if(S.site==='yeouido'&&S.opts.indexOf('na')>=0&&!(p.na&&p.na.m>=NA_MIN))return false;
     if(S.opts.indexOf('park')>=0){var pk=parkInfo(p);if(!pk||!(pk.v==='y'||pk.v==='f'||pk.v==='v'))return false;}
     if(dinner&&S.opts.indexOf('room')>=0&&!(p.room||p.grp))return false;
@@ -576,7 +577,7 @@ function filtered(){
 var NA_MIN=10;function naSort(){return S.site==='yeouido'&&S.opts.indexOf('na')>=0;}
 function pillsFor(p){
   var o=[],ts=teamScore(p.id);
-  if(S.meal==='dinner'){var ci=closeInfo(p);if(ci&&ci.m>0)o.push(el('span',{class:'pill'+(ci.m>=23*60?' late':''),title:'오늘 마감 · '+ci.src,text:(ci.m>=23*60?'🌙 ':'')+(ci.m>=2880?'24시간 영업':closeLabel(ci.m)+'까지')}));}
+  if(S.meal==='dinner'||lateSort()){var ci=closeInfo(p);if(ci&&ci.m>0)o.push(el('span',{class:'pill'+(ci.m>=23*60?' late':''),title:'오늘 마감 · '+ci.src,text:(ci.m>=23*60?'🌙 ':'')+(ci.m>=2880?'24시간 영업':closeLabel(ci.m)+'까지')}));}
   if(p.na&&p.na.m>=NA_MIN)o.push(el('span',{class:'pill na',title:'2023~24년 국회의원 '+p.na.m+'명이 정치자금으로 식대를 결제한 곳',text:'🏛 의원 단골 '+p.na.m+'명'}));
   if(S.meal==='dinner'&&hoesik(p)>=4)o.push(el('span',{class:'pill hs',text:'회식 추천'}));
   if(ts)o.push(el('span',{class:'pill team',text:'후기 ★'+ts.avg.toFixed(1)+' ('+ts.n+')'}));
@@ -667,7 +668,8 @@ function weekClose(p){if(!p.cl)return '';var g=[];p.cl.forEach(function(v,i){var
 function setCloseFix(p,v){if(!guardWrite(function(){setCloseFix(p,v);}))return;var doc=myReviewDoc();doc.cl=doc.cl||{};
   if(v!=null)doc.cl[p.id]={v:v,t:Date.now(),d:today()};else delete doc.cl[p.id];reviews[me]=doc;renderAll();
   toast(v!=null?'마감 시간을 모두에게 저장했어요':'마감 시간을 지웠어요');writeReviews(doc).catch(function(){toast('저장하지 못했어요. 다시 눌러 주세요');});}
-function lateSort(){return S.meal==='dinner'&&S.opts.indexOf('late')>=0;}
+function lateOnly(){return S.meal==='dinner'&&S.opts.indexOf('late')>=0;}
+function lateSort(){return lateOnly()||S.opts.indexOf('sortlate')>=0;}
 function flowParts(p){
   var a=access(p),f=timeFix(p.id),o=f?f.o:{},cs=cafesFor(p,5);
   var go=o.go!=null?o.go:(a.m!=null?a.m:15);
